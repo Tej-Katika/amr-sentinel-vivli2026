@@ -1,0 +1,33 @@
+# Vivli DUA-restricted data — NEVER commit (Vivli Data Use Agreement)
+data/*
+!data/README.md
+
+# Analysis outputs — regenerated from code; keep the dirs, not the contents
+results/*
+!results/.gitkeep
+figures/*
+!figures/.gitkeep
+
+# Reproducibility tooling
+mlruns/
+.dvc/cache/
+*.dvc
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+uv.lock.tmp
+
+# Environment / secrets
+.env
+*.key
+*.pem
