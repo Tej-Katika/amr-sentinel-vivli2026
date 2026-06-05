@@ -16,6 +16,7 @@ dependencies = [
   "pymc>=5.10",           # Step 2 Bayesian hierarchical projection
   "arviz>=0.18",          # convergence diagnostics (R-hat, ESS)
   "pandas>=2.2",
+  "xlrd>=2.0.1",          # read legacy .xls (SPIDAAR patient/isolate/definitions exports)
   "numpy>=1.26",
   "scikit-learn>=1.4",    # propensity model
   "scipy>=1.12",          # Spearman, bootstrap
