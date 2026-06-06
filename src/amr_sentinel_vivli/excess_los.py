@@ -192,3 +192,101 @@ def bootstrap_excess_los_ci(
         "n_boot": n_boot,
         "alpha": alpha,
     }
+
+
+# --- Severity adjustment + competing-risks decomposition (robustness checks) ----
+
+def bin_severity(severity) -> np.ndarray:
+    """Collapse disease severity (``disev`` in {1,2,3}) to low {1,2} / high {3}.
+
+    The susceptible arm has no severity-1 patients, so a 3-level direct
+    standardization has an empty cell. The binary low/high split keeps every patient
+    and leaves both arms populated in each stratum. Values outside {1,2,3} -> NaN.
+    """
+    s = pd.to_numeric(pd.Series(severity), errors="coerce")
+    out = np.where(s.isin([1, 2]), "low", np.where(s == 3, "high", None))
+    return out
+
+
+def standardized_excess_los(df: pd.DataFrame, tau: int = DEFAULT_TAU, strata=None) -> dict:
+    """Severity-standardized excess bed-days by direct (g-formula) standardization.
+
+    Computes arm-specific restricted-mean bed-days within each severity stratum, then
+    standardizes both arms to the *pooled* stratum distribution of the ascertained
+    cohort — removing confounding by the measured severity mix. Strata where either
+    arm is empty are dropped (with the weights renormalized) and reported, so the
+    standardized contrast is never built on an unsupported cell.
+    """
+    asc = df[pd.to_numeric(df["resistant"], errors="coerce").isin([0, 1])].reset_index(drop=True)
+    ef = build_exit_frame(asc, tau)
+    ef = ef.assign(
+        resistant=pd.to_numeric(asc["resistant"], errors="coerce").astype(int).to_numpy(),
+        stratum=bin_severity(asc["severity"]) if strata is None else np.asarray(strata),
+    )
+    ef = ef[ef["stratum"].notna()]
+
+    per_stratum: dict = {}
+    used: list = []
+    for s, g in ef.groupby("stratum"):
+        res, sus = g[g["resistant"] == 1], g[g["resistant"] == 0]
+        if len(res) >= 1 and len(sus) >= 1:
+            per_stratum[s] = {
+                "n": int(len(g)), "n_resistant": int(len(res)), "n_susceptible": int(len(sus)),
+                "rmst_resistant": km_rmst(res["time"], res["exited"], tau),
+                "rmst_susceptible": km_rmst(sus["time"], sus["exited"], tau),
+            }
+            used.append(s)
+    dropped = [s for s in ef["stratum"].unique() if s not in used]
+
+    total = sum(per_stratum[s]["n"] for s in used)
+    std_r = sum(per_stratum[s]["n"] / total * per_stratum[s]["rmst_resistant"] for s in used)
+    std_s = sum(per_stratum[s]["n"] / total * per_stratum[s]["rmst_susceptible"] for s in used)
+    return {
+        "tau": tau,
+        "standardized_excess_los": std_r - std_s,
+        "standardized_rmst_resistant": std_r,
+        "standardized_rmst_susceptible": std_s,
+        "strata_used": used,
+        "strata_dropped": dropped,
+        "per_stratum": per_stratum,
+    }
+
+
+def cif_at_tau(time, exit_type, tau: int = DEFAULT_TAU) -> dict:
+    """Aalen-Johansen cumulative incidence of discharge and death by ``tau``.
+
+    Proper competing-risks decomposition: each cause's CIF increments by
+    ``S(t-) * d_cause(t) / n_at_risk(t)`` where ``S`` is the all-cause
+    (leave-admitted) survival. Returns the discharge CIF, death CIF, and the
+    residual still-admitted probability at ``tau``.
+    """
+    time = np.asarray(time, dtype=float)
+    et = np.asarray(exit_type, dtype=int)
+    surv = 1.0
+    cif_disc = cif_death = 0.0
+    for ti in np.unique(time[et != EXIT_CENSORED]):
+        if ti > tau:
+            break
+        at_risk = np.sum(time >= ti)
+        d_disc = np.sum((time == ti) & (et == EXIT_DISCHARGE))
+        d_death = np.sum((time == ti) & (et == EXIT_DEATH))
+        cif_disc += surv * d_disc / at_risk
+        cif_death += surv * d_death / at_risk
+        surv *= 1.0 - (d_disc + d_death) / at_risk
+    return {
+        "discharge_cif": float(cif_disc),
+        "death_cif": float(cif_death),
+        "still_admitted": float(1.0 - cif_disc - cif_death),
+    }
+
+
+def cif_decomposition(df: pd.DataFrame, tau: int = DEFAULT_TAU) -> dict:
+    """Per-arm competing-risks CIF (discharge vs death) — the mechanism behind the
+    bed-day contrast (does resistance shift exits toward death rather than discharge?)."""
+    asc = df[pd.to_numeric(df["resistant"], errors="coerce").isin([0, 1])]
+    ef = build_exit_frame(asc, tau)
+    out = {}
+    for arm, name in ((1, "resistant"), (0, "susceptible")):
+        a = ef[ef["resistant"] == arm]
+        out[name] = {"n": int(len(a)), **cif_at_tau(a["time"], a["exit_type"], tau)}
+    return out
