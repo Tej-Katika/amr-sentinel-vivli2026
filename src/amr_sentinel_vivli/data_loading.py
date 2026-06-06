@@ -59,10 +59,15 @@ _INFECTION_SITE_LABELS = {
 
 # Patient-level resistance summary (``amrp``): exposure for the patient-level H1.
 #   2  -> ≥1 resistant isolate to treatment AB class   -> resistant (1)
-#   0  -> all isolates susceptible                      -> susceptible (0)
-#   1  -> mixed S, untested (no resistant isolate seen) -> susceptible (0)
-#  -1  -> no susceptibility result / no isolate         -> unascertainable (NaN)
-_RESISTANT_FROM_AMRP = {2: 1.0, 0: 0.0, 1: 0.0}
+#   0  -> all isolates susceptible (confirmed)          -> susceptible (0)
+#   1  -> mixed S, untested (no resistant isolate seen) -> NOT confirmed -> NaN
+#  -1  -> no susceptibility result / no isolate         -> unascertainable -> NaN
+# NOTE (deviation 2026-06-06): ``amrp == 1`` was previously mapped to susceptible
+# (0); it is now excluded from the resistant-vs-susceptible contrast (-> NaN),
+# because "mixed, S-untested" is not a confirmed-susceptible patient and lumping it
+# into the comparison arm makes the causal contrast indefensible. Susceptible is now
+# ``amrp == 0`` ONLY. See docs/deviation_log.md and docs/analysis_plan_2026.md.
+_RESISTANT_FROM_AMRP = {2: 1.0, 0: 0.0}
 
 # Isolate-file binary resistance flags (``c3r``, ``mdr``, ``mrsa``, ``rx``):
 #   1 -> resistant / positive, 0 -> susceptible / negative. Any other code is a
@@ -75,10 +80,16 @@ _DEAD_DECEASED_CODES = (1, 9)
 _DEAD_VALID_CODES = (0, 1, 9)
 
 # Analysis-frame columns returned by load_spidaar (no ``year`` — see module docstring).
+# Includes the excess-length-of-stay (Component 1) fields surfaced 2026-06-06:
+# ``los`` (discharge LOS, the competing-risks event time), ``severity``/``ward``/
+# ``days_to_enrolment`` (confounders / left-truncation), and ``treatment_adequacy``
+# (raw ``txadp`` for the Step-5 g-formula; coding verified against the codebook there).
 SPIDAAR_COLUMNS = (
     "pid", "country", "organism", "infection_site", "age", "age_group", "sex",
-    "resistant", "amrp", "mortality_30d", "time_at_risk",
-    "dead", "days_to_death", "days_observed",
+    "ward", "severity", "days_to_enrolment",
+    "resistant", "amrp", "treatment_adequacy",
+    "mortality_30d", "time_at_risk",
+    "los", "dead", "days_to_death", "days_observed",
 )
 
 # Analysis-frame columns returned by load_spidaar_isolates. Unlike the patient
@@ -107,7 +118,8 @@ def _build_spidaar_analysis_frame(raw: pd.DataFrame) -> pd.DataFrame:
 
     Pure function (no I/O) so it can be unit-tested on synthetic rows. Expects the
     raw patient-level columns ``pid, ctry, agegr, sex, chaicat, isol, amrp, dead,
-    dtpta, nobsd`` and returns the columns in ``SPIDAAR_COLUMNS``.
+    dtpta, nobsd, los, disev, ward, enrtpt, txadp`` and returns the columns in
+    ``SPIDAAR_COLUMNS``.
 
     Outcome (``mortality_30d`` / ``time_at_risk``): a 30-day-horizon survival pair.
     A death observed on/before day 30 (``dead`` in {1, 9} with days-to-death
@@ -115,9 +127,15 @@ def _build_spidaar_analysis_frame(raw: pd.DataFrame) -> pd.DataFrame:
     ``min(follow-up, 30)`` days, where follow-up is ``dtpta`` for deaths and the
     observation length ``nobsd`` for survivors.
 
-    Exposure (``resistant``): from ``amrp`` per ``_RESISTANT_FROM_AMRP``; NaN where
-    resistance is unascertainable (``amrp == -1``) so the Step-1 model can restrict
-    to the resistant-vs-susceptible comparison cohort.
+    Excess-LOS fields (Component 1, surfaced 2026-06-06): ``los`` (discharge
+    length-of-stay = the competing-risks event time; NaN for patients who died or
+    were not discharged), ``severity`` (``disev``), ``ward``, ``days_to_enrolment``
+    (``enrtpt``), and raw ``treatment_adequacy`` (``txadp``).
+
+    Exposure (``resistant``): from ``amrp`` per ``_RESISTANT_FROM_AMRP`` — resistant
+    is ``amrp == 2``, susceptible is ``amrp == 0`` ONLY. ``amrp`` in {1, -1} maps to
+    NaN (mixed-untested / unascertainable) and is excluded from the
+    resistant-vs-susceptible contrast (deviation 2026-06-06).
     """
     raw = raw.reset_index(drop=True)
     dead = pd.to_numeric(raw["dead"], errors="coerce")
@@ -134,6 +152,15 @@ def _build_spidaar_analysis_frame(raw: pd.DataFrame) -> pd.DataFrame:
     sex_code = pd.to_numeric(raw["sex"], errors="coerce")
     amrp = pd.to_numeric(raw["amrp"], errors="coerce")
 
+    # Excess-LOS (Component 1) fields: discharge length-of-stay, severity, ward, and
+    # the admission->enrolment day-count (enables the left-truncation sensitivity);
+    # plus raw treatment-adequacy ``txadp`` for the Step-5 g-formula.
+    los = pd.to_numeric(raw["los"], errors="coerce")
+    disev = pd.to_numeric(raw["disev"], errors="coerce")
+    ward = pd.to_numeric(raw["ward"], errors="coerce")
+    enrtpt = pd.to_numeric(raw["enrtpt"], errors="coerce")
+    txadp = pd.to_numeric(raw["txadp"], errors="coerce")
+
     out = pd.DataFrame({
         "pid": raw["pid"],
         "country": raw["ctry"],
@@ -142,10 +169,15 @@ def _build_spidaar_analysis_frame(raw: pd.DataFrame) -> pd.DataFrame:
         "age": agegr.astype("Int64"),
         "age_group": agegr.map(_AGE_GROUP_LABELS),
         "sex": sex_code.map(_SEX_LABELS),
+        "ward": ward.astype("Int64"),
+        "severity": disev.astype("Int64"),
+        "days_to_enrolment": enrtpt.astype("Int64"),
         "resistant": amrp.map(_RESISTANT_FROM_AMRP).astype("Int64"),
         "amrp": amrp.astype("Int64"),
+        "treatment_adequacy": txadp.astype("Int64"),
         "mortality_30d": event.astype(int),
         "time_at_risk": time_at_risk,
+        "los": los,
         "dead": dead.astype("Int64"),
         "days_to_death": dtpta,
         "days_observed": nobsd,

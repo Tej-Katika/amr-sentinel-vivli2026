@@ -21,27 +21,28 @@ from amr_sentinel_vivli.data_loading import (
 
 def _raw(rows):
     """Build a raw patientdata-'data'-shaped frame from dict rows."""
-    cols = ["pid", "ctry", "agegr", "sex", "chaicat", "isol", "amrp", "dead", "dtpta", "nobsd"]
+    cols = ["pid", "ctry", "agegr", "sex", "chaicat", "isol", "amrp", "dead", "dtpta",
+            "nobsd", "los", "disev", "ward", "enrtpt", "txadp"]
     return pd.DataFrame(rows)[cols]
 
 
 def _synthetic():
     return _raw([
-        # death within 30d -> event, time = dtpta
+        # death within 30d -> event, time = dtpta; died so no discharge LOS
         dict(pid=1, ctry="Kenya", agegr=14, sex=0, chaicat=1, isol="Escherichia coli",
-             amrp=2, dead=1, dtpta=8, nobsd=8),
+             amrp=2, dead=1, dtpta=8, nobsd=8, los=None, disev=3, ward=1, enrtpt=2, txadp=1),
         # death after 30d -> survivor at horizon (event 0, time 30)
         dict(pid=2, ctry="Ghana", agegr=6, sex=1, chaicat=4, isol="Klebsiella pneumoniae",
-             amrp=0, dead=1, dtpta=40, nobsd=40),
-        # alive, observed past horizon -> event 0, time 30
+             amrp=0, dead=1, dtpta=40, nobsd=40, los=None, disev=2, ward=2, enrtpt=3, txadp=0),
+        # alive, observed past horizon -> event 0, time 30; discharged day 20
         dict(pid=3, ctry="Uganda", agegr=0, sex=0, chaicat=2, isol="Pseudomonas aeruginosa",
-             amrp=1, dead=0, dtpta=None, nobsd=45),
-        # alive, censored early (obs < horizon) -> event 0, time = nobsd
+             amrp=1, dead=0, dtpta=None, nobsd=45, los=20, disev=1, ward=3, enrtpt=4, txadp=9),
+        # alive, censored early (obs < horizon) -> event 0, time = nobsd; discharged day 12
         dict(pid=4, ctry="Malawi", agegr=9, sex=3, chaicat=10, isol=None,
-             amrp=-1, dead=0, dtpta=None, nobsd=12),
+             amrp=-1, dead=0, dtpta=None, nobsd=12, los=12, disev=3, ward=4, enrtpt=5, txadp=9),
         # deceased-censored (dead==9) within 30d counts as all-cause event
         dict(pid=5, ctry="Kenya", agegr=2, sex=1, chaicat=3, isol="Staphylococcus aureus",
-             amrp=2, dead=9, dtpta=6, nobsd=30),
+             amrp=2, dead=9, dtpta=6, nobsd=30, los=None, disev=2, ward=1, enrtpt=6, txadp=1),
     ])
 
 
@@ -73,10 +74,25 @@ def test_survivor_time_is_capped_and_early_censor_kept():
 
 def test_resistance_exposure_mapping():
     out = _build_spidaar_analysis_frame(_synthetic()).set_index("pid")
-    assert out.loc[1, "resistant"] == 1              # amrp 2
-    assert out.loc[2, "resistant"] == 0              # amrp 0
-    assert out.loc[3, "resistant"] == 0              # amrp 1 (mixed S-untested)
-    assert pd.isna(out.loc[4, "resistant"])          # amrp -1 unascertainable
+    assert out.loc[1, "resistant"] == 1              # amrp 2 -> resistant
+    assert out.loc[2, "resistant"] == 0              # amrp 0 -> susceptible (confirmed)
+    assert pd.isna(out.loc[3, "resistant"])          # amrp 1 (mixed S-untested) -> excluded
+    assert pd.isna(out.loc[4, "resistant"])          # amrp -1 unascertainable -> excluded
+
+
+def test_excess_los_fields_surfaced():
+    out = _build_spidaar_analysis_frame(_synthetic()).set_index("pid")
+    # discharge LOS present for discharged patients, NaN for those who died
+    assert out.loc[3, "los"] == 20
+    assert out.loc[4, "los"] == 12
+    assert pd.isna(out.loc[1, "los"])                # died -> no discharge LOS
+    # confounders / left-truncation day-count surfaced
+    assert out.loc[1, "severity"] == 3
+    assert out.loc[2, "ward"] == 2
+    assert out.loc[5, "days_to_enrolment"] == 6
+    # raw treatment adequacy carried through (codebook coding resolved in Step 5)
+    assert out.loc[2, "treatment_adequacy"] == 0
+    assert out.loc[1, "treatment_adequacy"] == 1
 
 
 def test_covariate_decoding():
@@ -93,9 +109,9 @@ def test_covariate_decoding():
 def test_restrict_to_catchment_drops_out_of_scope():
     raw = _raw([
         dict(pid=1, ctry="Kenya", agegr=1, sex=0, chaicat=1, isol="x",
-             amrp=0, dead=0, dtpta=None, nobsd=10),
+             amrp=0, dead=0, dtpta=None, nobsd=10, los=10, disev=2, ward=1, enrtpt=2, txadp=0),
         dict(pid=2, ctry="Nigeria", agegr=1, sex=0, chaicat=1, isol="x",
-             amrp=0, dead=0, dtpta=None, nobsd=10),
+             amrp=0, dead=0, dtpta=None, nobsd=10, los=10, disev=2, ward=1, enrtpt=2, txadp=0),
     ])
     kept = _restrict_to_catchment(raw)
     assert list(kept["ctry"]) == ["Kenya"]

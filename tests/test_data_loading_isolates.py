@@ -67,10 +67,10 @@ def test_per_mechanism_flags_and_sentinels():
 
 def test_amrtx_resistance_mapping():
     out = _build_spidaar_isolate_frame(_synthetic()).set_index("iid")
-    assert out.loc[1, "amrtx_resistant"] == 1      # amrtx 2
-    assert out.loc[2, "amrtx_resistant"] == 0      # amrtx 0
-    assert out.loc[3, "amrtx_resistant"] == 0      # amrtx 1 (mixed S-untested)
-    assert pd.isna(out.loc[4, "amrtx_resistant"])  # amrtx -1
+    assert out.loc[1, "amrtx_resistant"] == 1      # amrtx 2 -> resistant
+    assert out.loc[2, "amrtx_resistant"] == 0      # amrtx 0 -> susceptible (confirmed)
+    assert pd.isna(out.loc[3, "amrtx_resistant"])  # amrtx 1 (mixed S-untested) -> excluded
+    assert pd.isna(out.loc[4, "amrtx_resistant"])  # amrtx -1 -> not ascertained
 
 
 def test_sample_date_parsing():
