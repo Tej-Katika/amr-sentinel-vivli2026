@@ -64,6 +64,12 @@ _INFECTION_SITE_LABELS = {
 #  -1  -> no susceptibility result / no isolate         -> unascertainable (NaN)
 _RESISTANT_FROM_AMRP = {2: 1.0, 0: 0.0, 1: 0.0}
 
+# Isolate-file binary resistance flags (``c3r``, ``mdr``, ``mrsa``, ``rx``):
+#   1 -> resistant / positive, 0 -> susceptible / negative. Any other code is a
+# sentinel for "not tested / not applicable" (e.g. ``9`` for 3GC-R on a
+# Gram-positive, ``99`` for MRSA on a non-staphylococcus) and maps to NaN.
+_RESISTANT_BINARY = {1: 1.0, 0: 0.0}
+
 # Mortality status for analysis (``dead``): 0 alive, 1 deceased, 9 deceased-censored.
 _DEAD_DECEASED_CODES = (1, 9)
 _DEAD_VALID_CODES = (0, 1, 9)
@@ -73,6 +79,16 @@ SPIDAAR_COLUMNS = (
     "pid", "country", "organism", "infection_site", "age", "age_group", "sex",
     "resistant", "amrp", "mortality_30d", "time_at_risk",
     "dead", "days_to_death", "days_observed",
+)
+
+# Analysis-frame columns returned by load_spidaar_isolates. Unlike the patient
+# frame this carries NO outcome (mortality is patient-side only and unlinkable)
+# but DOES carry the per-mechanism resistance detail the patient summary collapses
+# away (``c3r`` / ``mdr`` / ``mrsa``) plus sample timing for the Step-2 anchor.
+ISOLATE_COLUMNS = (
+    "iid", "country", "organism", "organism_group", "specimen",
+    "infection_site", "clinical_relevance", "sample_month", "sample_year",
+    "resistant", "c3r", "mdr", "mrsa", "amrtx_resistant",
 )
 
 
@@ -172,6 +188,92 @@ def load_spidaar() -> pd.DataFrame:
     cohort = _restrict_to_catchment(raw)
     frame = _build_spidaar_analysis_frame(cohort)
     _validate_spidaar(frame)
+    return frame.reset_index(drop=True)
+
+
+def _build_spidaar_isolate_frame(raw: pd.DataFrame) -> pd.DataFrame:
+    """Map a raw SPIDAAR ``isolatedata`` 'data' sheet to the isolate-level frame.
+
+    Pure function (no I/O) so it can be unit-tested on synthetic rows. Expects the
+    raw isolate columns ``iid, isolate, group, chaicat, clinrel, stype, sampdat,
+    c3r, mdr, mrsa, amrtx, rx, ctry`` and returns the columns in ``ISOLATE_COLUMNS``.
+
+    Resistance exposure (``resistant``): the workbook composite ``rx`` ("MDR
+    and/or 3GC-R"), the isolate-level analog of the patient-level ``amrp`` (1 ->
+    resistant, 0 -> not, NaN where not ascertained). The per-mechanism flags
+    ``c3r`` / ``mdr`` / ``mrsa`` and the administered-class resistance
+    ``amrtx_resistant`` are carried through (NaN where not tested / not applicable).
+
+    Code semantics for the binary flags (``_RESISTANT_BINARY``) and ``amrtx``
+    (``_RESISTANT_FROM_AMRP``) are inferred from the patient-side codebook and
+    SPIDAAR conventions; the isolate workbook ships variable *labels* but not
+    answer *codes*. VERIFY against the official codebook inside the secure
+    environment and log any correction (pre-reg §11).
+    """
+    raw = raw.reset_index(drop=True)
+    sampled = pd.to_datetime(raw["sampdat"], format="%m/%Y", errors="coerce")
+    chaicat = pd.to_numeric(raw["chaicat"], errors="coerce")
+    c3r = pd.to_numeric(raw["c3r"], errors="coerce")
+    mdr = pd.to_numeric(raw["mdr"], errors="coerce")
+    mrsa = pd.to_numeric(raw["mrsa"], errors="coerce")
+    rx = pd.to_numeric(raw["rx"], errors="coerce")
+    amrtx = pd.to_numeric(raw["amrtx"], errors="coerce")
+
+    out = pd.DataFrame({
+        "iid": raw["iid"],
+        "country": raw["ctry"],
+        "organism": raw["isolate"],
+        "organism_group": pd.to_numeric(raw["group"], errors="coerce").astype("Int64"),
+        "specimen": raw["stype"],
+        "infection_site": chaicat.map(_INFECTION_SITE_LABELS),
+        "clinical_relevance": raw["clinrel"],
+        "sample_month": sampled.dt.month.astype("Int64"),
+        "sample_year": sampled.dt.year.astype("Int64"),
+        "resistant": rx.map(_RESISTANT_BINARY).astype("Int64"),
+        "c3r": c3r.map(_RESISTANT_BINARY).astype("Int64"),
+        "mdr": mdr.map(_RESISTANT_BINARY).astype("Int64"),
+        "mrsa": mrsa.map(_RESISTANT_BINARY).astype("Int64"),
+        "amrtx_resistant": amrtx.map(_RESISTANT_FROM_AMRP).astype("Int64"),
+    })
+    return out[list(ISOLATE_COLUMNS)]
+
+
+def _validate_spidaar_isolates(df: pd.DataFrame) -> None:
+    """Fail fast on the invariants the isolate-level analyses rely on."""
+    stray = set(df["country"].dropna()) - set(config.CATCHMENT_COUNTRIES)
+    if stray:
+        raise ValueError(f"SPIDAAR isolates outside the catchment: {sorted(stray)}")
+    for col in ("resistant", "c3r", "mdr", "mrsa", "amrtx_resistant"):
+        vals = set(df[col].dropna().astype(int))
+        if not vals <= {0, 1}:
+            raise ValueError(
+                f"{col} must be binary 0/1 (NaN where not ascertained); got {sorted(vals)}"
+            )
+    yrs = df["sample_year"].dropna().astype(int)
+    if len(yrs) and (yrs.min() < 2000 or yrs.max() > 2100):
+        raise ValueError(f"Implausible sample_year range: {yrs.min()}-{yrs.max()}")
+
+
+def load_spidaar_isolates() -> pd.DataFrame:
+    """Load the SPIDAAR isolate-level resistance file (pre-reg §5).
+
+    Reads ``data/spidaar/spidaar_isolatedata.xls``, restricts to
+    ``config.CATCHMENT_COUNTRIES``, and returns the analysis frame
+    (``ISOLATE_COLUMNS``): 244 isolates (2021-2022) with organism, specimen, HAI
+    site, clinical relevance, sample timing, and resistance — both the composite
+    exposure ``resistant`` (``rx`` = MDR and/or 3GC-R) and the per-mechanism flags.
+
+    This is the **isolate-level** SPIDAAR resource. It carries no patient outcome
+    and shares no join key with the patient file (see the module docstring and
+    ``docs/deviation_log.md``), so it powers the Step-2 local projection anchor and
+    the standalone resistance-burden description — NOT the Step-1 mortality model,
+    until a re-linked (``pid``↔``iid``) extract is obtained.
+    """
+    path = config.DATA_DIR / "spidaar" / "spidaar_isolatedata.xls"
+    raw = _read_data_sheet(path)
+    isolates = _restrict_to_catchment(raw)
+    frame = _build_spidaar_isolate_frame(isolates)
+    _validate_spidaar_isolates(frame)
     return frame.reset_index(drop=True)
 
 
