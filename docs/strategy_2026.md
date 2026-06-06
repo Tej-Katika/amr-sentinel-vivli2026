@@ -31,7 +31,7 @@ explicitly contest the **Global AMR R&D Hub Cross-Domain Award**.
    Enterobacterales BSI cohort (n=162, 36 deaths) collapsed to a null adjusted
    HR 1.13 (95% CI 0.51–2.53) — an order of magnitude more deaths than SPIDAAR's
    exposure-ascertained ~14, and still null. A small cohort cannot headline a
-   mortality HR. *(Loftus et al., Lancet Reg Health W Pac 2022.)*
+   mortality HR. *(Loftus et al., J Glob Antimicrob Resist 2022;30:286–93.)*
 
 ## The pivot — primary headline
 
@@ -122,9 +122,15 @@ without local validation**. This converts the positionality risk into the
 
 ## Key risks / caveats (from adversarial verification)
 
-- **Geographic transfer:** the Fiji null is a *power/method* illustration only —
-  the directly comparable SSA study (MBIRA, 8 SSA hospitals) found 3GC-R **was**
-  associated with mortality. SPIDAAR's own data must drive any directional claim.
+- **MBIRA (reconciled 2026-06-06 — this corrects an earlier wrong claim here):** the
+  directly comparable SSA study — MBIRA (Aiken et al., *Lancet Infect Dis*
+  2023;23:1280–90; 8 SSA hospitals, 878 BSI) — found that after matching/adjustment,
+  3GC-resistance was **NOT** independently associated with mortality (ratio of
+  cause-specific HRs 0.74, 95% CI 0.42–1.30) or discharge (1.16, 0.93–1.45). Crude
+  resistant mortality was higher (37.1% vs 28.1%) but dissolved on adjustment. A
+  "resistance kills" headline would be contradicted by the authoritative SSA evidence;
+  SPIDAAR's own confounded, underpowered crude difference cannot override it. See
+  `docs/reference_verified_2026-06-06.md`.
 - **Calibration-probe inference** (14 events vs GRAM) is *our* framing; present as
   motivation/transparency, not a validated capability.
 - **Exposure imbalance / ascertainment** (23 susceptible; 178 unascertained) is
@@ -154,7 +160,8 @@ without local validation**. This converts the positionality risk into the
   https://amr.vivli.org/data-challenge/2025-finalist-and-award-winning-solutions/
 - Murray et al., GRAM, Lancet 2022: https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(21)02724-0/fulltext
 - WHO African region GRAM, Lancet Glob Health 2023: https://www.thelancet.com/journals/langlo/article/PIIS2214-109X(23)00539-9/fulltext
-- Loftus et al., Fiji Enterobacterales cohort (null mortality, precise excess-LOS):
+- Loftus et al., Fiji Enterobacterales cohort, J Glob Antimicrob Resist 2022;30:286–93
+  (null mortality, precise excess-LOS):
   https://www.sciencedirect.com/science/article/pii/S2213716522001515
 - Malawi competing-risks discharge cohort: https://pmc.ncbi.nlm.nih.gov/articles/PMC10911049/
 - Global AMR R&D Hub dynamic dashboard / methodology: https://globalamrhub.org/dynamic-dashboard/
