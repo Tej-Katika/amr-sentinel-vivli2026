@@ -17,7 +17,7 @@ Pre-registered secondary analysis for the **2026 Vivli AMR Surveillance Open Dat
 | 2 | [`bayesian_projection.py`](src/amr_sentinel_vivli/bayesian_projection.py) | Bayesian hierarchical resistance projection 2025–2030 (tests **H2**) |
 | 3 | [`mortality_bridge.py`](src/amr_sentinel_vivli/mortality_bridge.py) | PAF bridge: HR × projected resistance → attributable deaths |
 | 4 | [`rd_alignment.py`](src/amr_sentinel_vivli/rd_alignment.py) | Public R&D landscape alignment vs burden (tests **H3**) |
-| 5 | [`stewardship_gformula.py`](src/amr_sentinel_vivli/stewardship_gformula.py) | Bayesian g-formula empiric-switch simulator (tests **H4**) |
+| 5 | [`stewardship_gformula.py`](src/amr_sentinel_vivli/stewardship_gformula.py) | Empiric-adequacy g-formula: counterfactual avertable bed-days/deaths, WHO-CHOICE costed (exploratory) |
 
 Cross-cutting: [`config.py`](src/amr_sentinel_vivli/config.py) (locked constants), [`sensitivity.py`](src/amr_sentinel_vivli/sensitivity.py) (pre-reg §8), [`pipeline.py`](src/amr_sentinel_vivli/pipeline.py) (orchestration).
 

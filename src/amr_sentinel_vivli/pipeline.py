@@ -12,7 +12,7 @@ from .bayesian_projection import fit_projection
 from .cox_mortality import fit_cox_mortality
 from .mortality_bridge import bridge_to_mortality
 from .rd_alignment import analyze_alignment
-from .stewardship_gformula import simulate_switch
+from .stewardship_gformula import run_stewardship_gformula
 
 
 def run() -> None:
@@ -26,7 +26,7 @@ def run() -> None:
     projection = fit_projection(_combine(atlas, smart))    # Step 2 (H2)
     burden = bridge_to_mortality(cox, projection, _who_ghe_denominators())  # Step 3
     _alignment = analyze_alignment(burden, rd_hub)         # Step 4 (H3)
-    _intervention = simulate_switch(burden, organism="", site="", switch="")  # Step 5 (H4)
+    _intervention = run_stewardship_gformula(spidaar)      # Step 5 (empiric-adequacy g-formula)
 
 
 def _combine(atlas, smart):
