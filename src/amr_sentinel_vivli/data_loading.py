@@ -67,6 +67,10 @@ _INFECTION_SITE_LABELS = {
 # because "mixed, S-untested" is not a confirmed-susceptible patient and lumping it
 # into the comparison arm makes the causal contrast indefensible. Susceptible is now
 # ``amrp == 0`` ONLY. See docs/deviation_log.md and docs/analysis_plan_2026.md.
+# CODEBOOK-CONFIRMED (2026-06-08): the official patient codebook defines ``amrp``
+# ("Drug susceptibility result to administered AB class, patient level") as
+# -1 = No RX result, 0 = All isolates S, 1 = Mixed S-untested, 2 = >=1 R isolate —
+# matching this mapping exactly.
 _RESISTANT_FROM_AMRP = {2: 1.0, 0: 0.0}
 
 # Isolate-file binary resistance flags (``c3r``, ``mdr``, ``mrsa``, ``rx``):

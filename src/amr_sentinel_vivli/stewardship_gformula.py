@@ -38,13 +38,12 @@ the estimate. Resistance is therefore **excluded from the confounder set L**. Th
 principled stratum-specific contrast is the controlled direct effect *within* resistance
 strata (``gformula_by_resistance``); the pooled estimate is the population effect.
 
-Status: EXPLORATORY, gated on Gate A (``docs/analysis_plan_2026.md`` §3). The treatment is
-``treatment_adequacy`` (raw ``txadp``: ~106 adequate / 52 inadequate / 178 unknown). The
-**integer codes** of ``txadp`` are assumed here (``TXADP_ADEQUATE_CODE`` /
-``TXADP_INADEQUATE_CODE``) and MUST be verified against the secure-environment codebook
-before any result is quoted; a one-line constant change fixes them. With 52 inadequate
-patients the per-stratum cells are thin and the contrast is wide / prior-sensitive — this
-is a what-if calibration tool, not a confirmatory individual-effect claim.
+Status: EXPLORATORY. The treatment is ``treatment_adequacy`` (raw ``txadp``: 106 adequate /
+52 inadequate / 178 unknown). Its coding is **codebook-confirmed** (Gate A resolved
+2026-06-08: Adequate=0, Inadequate=1, Unknown=9), so the result sign is settled. It remains
+exploratory because with 52 inadequate patients the per-stratum cells are thin and the
+contrast is wide — this is a what-if calibration tool, not a confirmatory individual-effect
+claim.
 """
 
 from __future__ import annotations
@@ -62,19 +61,13 @@ from .excess_los import (
 )
 
 # --- Treatment node: empiric-therapy adequacy from ``txadp`` -----------------
-# Coding aligned to the documented interpretation (data-utilization-roadmap /
-# analysis_plan §3 Gate A): the realized raw ``txadp`` counts are {0: 106, 1: 52,
-# 9: 178}, documented as "106 adequate / 52 inadequate / 178 unknown" -> therefore
-# adequate = 0, inadequate = 1. Code 9 (and any other value / NaN) is the unknown
-# sentinel and is excluded from the contrast, mirroring the ``amrp`` convention in
-# ``data_loading._RESISTANT_FROM_AMRP``.
-#
-# >>> GATE A (the single most important codebook check) <<< : this code->label
-# DIRECTION is not yet confirmed against the official SPIDAAR codebook, and it
-# FLIPS THE SIGN of every result here. The clinical coherence check supports it
-# (adequate=0 makes adequate therapy AVERT deaths, death CIF 0.071 vs 0.097, the
-# expected direction), but verify in the secure env before quoting. Flipping these
-# two constants is the one-line switch if the codebook disagrees.
+# >>> GATE A RESOLVED (codebook-confirmed 2026-06-08) <<< : the official SPIDAAR
+# patient codebook (``spidaar_definitions``/``codebook`` sheet) defines ``txadp``
+# ("Treatment adequacy, at patient level") as Adequate = 0, Inadequate = 1, Unknown = 9.
+# This matches the constants below exactly, so the result sign is confirmed (adequate
+# therapy AVERTS deaths; death CIF 0.071 vs 0.097). Realized counts {0: 106, 1: 52,
+# 9: 178}. Code 9 (and any other value / NaN) is the unknown sentinel, excluded from the
+# contrast, mirroring the ``amrp`` convention in ``data_loading._RESISTANT_FROM_AMRP``.
 TXADP_ADEQUATE_CODE = 0
 TXADP_INADEQUATE_CODE = 1
 _ADEQUACY_FROM_TXADP = {TXADP_ADEQUATE_CODE: 1.0, TXADP_INADEQUATE_CODE: 0.0}
@@ -488,8 +481,8 @@ def build_calibration_artifact(
             "n_cells_below_min_n_suppressed": suppressed,
             "gate_a_note": (
                 f"txadp coding adequate={TXADP_ADEQUATE_CODE}, "
-                f"inadequate={TXADP_INADEQUATE_CODE} — UNVERIFIED vs official codebook; "
-                "this direction flips the sign of every scenario."
+                f"inadequate={TXADP_INADEQUATE_CODE}, unknown=9 — CONFIRMED against the "
+                "official SPIDAAR codebook (Gate A resolved 2026-06-08)."
             ),
         },
         "per_patient": {

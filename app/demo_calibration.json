@@ -12,7 +12,7 @@
     "n_on_support": 320,
     "n_strata_supported": 8,
     "n_cells_below_min_n_suppressed": 0,
-    "gate_a_note": "txadp coding adequate=0, inadequate=1 \u2014 UNVERIFIED vs official codebook; this direction flips the sign of every scenario."
+    "gate_a_note": "txadp coding adequate=0, inadequate=1, unknown=9 \u2014 CONFIRMED against the official SPIDAAR codebook (Gate A resolved 2026-06-08)."
   },
   "per_patient": {
     "pooled": {
