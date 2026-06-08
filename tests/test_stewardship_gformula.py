@@ -15,7 +15,9 @@ from amr_sentinel_vivli.stewardship_gformula import (
     INADEQUATE,
     TXADP_ADEQUATE_CODE,
     TXADP_INADEQUATE_CODE,
+    adequacy_scenario,
     binarize_adequacy,
+    build_calibration_artifact,
     cost_of_bed_days,
     gformula_bed_days,
     gformula_by_resistance,
@@ -23,6 +25,7 @@ from amr_sentinel_vivli.stewardship_gformula import (
     positivity_diagnostic,
     run_stewardship_gformula,
     scale_to_population,
+    synthetic_cohort,
 )
 
 _COLS = ["pid", "country", "resistant", "treatment_adequacy", "severity",
@@ -200,3 +203,101 @@ def test_run_entrypoint_bundles_components():
 
 def test_adequate_inadequate_constants():
     assert (ADEQUATE, INADEQUATE) == (1, 0)
+
+
+# --- Streamlit calibration artifact + scenario calculator -------------------
+
+def test_synthetic_cohort_has_positivity_and_no_real_columns():
+    df = synthetic_cohort(seed=1, per_cell=6)
+    a = binarize_adequacy(df["treatment_adequacy"])
+    assert (a == 1).sum() > 0 and (a == 0).sum() > 0
+    # every (severity_bin, country) cell carries both arms -> g-formula identifies, no drops
+    res = gformula_bed_days(df)
+    assert res["strata_dropped"] == []
+    # synthetic story matches reality: adequacy averts deaths (+) and adds bed-days
+    assert res["averted_death_fraction"] > 0
+    assert res["bed_days_set_adequate"] > res["bed_days_set_inadequate"]
+
+
+def test_synthetic_cohort_is_deterministic():
+    a = synthetic_cohort(seed=42, per_cell=5)
+    b = synthetic_cohort(seed=42, per_cell=5)
+    assert a.equals(b)
+
+
+def test_build_calibration_artifact_is_deidentified_and_json_safe():
+    art = build_calibration_artifact(synthetic_cohort(seed=2, per_cell=8), source="synthetic-demo")
+    assert art["schema_version"] == 1
+    assert art["provenance"]["source"] == "synthetic-demo"
+    assert set(art["per_patient"]) == {"pooled", "resistant", "susceptible"}
+    pp = art["per_patient"]["pooled"]
+    assert pp["delta_bed_days_per_upgrade"] == pytest.approx(
+        pp["bed_days_set_adequate"] - pp["bed_days_set_inadequate"]
+    )
+    # no patient rows / stratum cells / tuple keys leak -> must JSON round-trip
+    import json
+    assert json.loads(json.dumps(art)) == art
+
+
+def test_build_calibration_artifact_suppresses_small_cells():
+    # a stratum with a 1-patient arm is on-support but below min_cell_n -> counted suppressed
+    AQ, IQ = TXADP_ADEQUATE_CODE, TXADP_INADEQUATE_CODE
+    frame = pd.DataFrame([
+        _row(1, "Kenya", 1, AQ, 3, los=10),
+        _row(2, "Kenya", 1, IQ, 3, los=20),   # Kenya/high: 1 vs 1 -> below min_cell_n=5
+    ] + [
+        _row(10 + i, "Ghana", 0, AQ, 2, los=5) for i in range(6)
+    ] + [
+        _row(20 + i, "Ghana", 0, IQ, 2, los=9) for i in range(6)
+    ])[_COLS]
+    art = build_calibration_artifact(frame, min_cell_n=5)
+    assert art["provenance"]["n_strata_supported"] == 2
+    assert art["provenance"]["n_cells_below_min_n_suppressed"] == 1   # Kenya/high
+
+
+def _demo_artifact():
+    return build_calibration_artifact(
+        synthetic_cohort(seed=7, per_cell=10), source="synthetic-demo")
+
+
+def test_adequacy_scenario_directions_and_scaling():
+    art = _demo_artifact()
+    sc = adequacy_scenario(art, n_patients=200, current_adequacy=0.5, target_adequacy=0.8,
+                           country="Kenya", arm="pooled")
+    assert sc["patients_upgraded"] == pytest.approx(60.0)               # 0.3 * 200
+    assert sc["averted_deaths"] > 0                                     # adequacy saves lives
+    assert sc["added_bed_days"] > 0                                     # ...and adds bed-days
+    assert sc["unit_cost_per_bed_day"] == pytest.approx(BED_DAY_COST_USD_2010["Kenya"])
+    assert sc["added_cost"] == pytest.approx(sc["added_bed_days"] * sc["unit_cost_per_bed_day"])
+    assert "ecological-calibration" in sc["firewall"].lower()
+
+
+def test_adequacy_scenario_linear_in_n_and_gap():
+    art = _demo_artifact()
+    base = adequacy_scenario(art, n_patients=100, current_adequacy=0.4, target_adequacy=0.6,
+                             country="Ghana")
+    doubled = adequacy_scenario(art, n_patients=200, current_adequacy=0.4, target_adequacy=0.6,
+                                country="Ghana")
+    assert doubled["averted_deaths"] == pytest.approx(2 * base["averted_deaths"])
+    assert doubled["added_bed_days"] == pytest.approx(2 * base["added_bed_days"])
+
+
+def test_adequacy_scenario_target_below_current_is_zero():
+    art = _demo_artifact()
+    sc = adequacy_scenario(art, n_patients=500, current_adequacy=0.8, target_adequacy=0.5,
+                           country="Malawi")
+    assert sc["patients_upgraded"] == 0.0
+    assert sc["averted_deaths"] == 0.0 and sc["added_bed_days"] == 0.0
+
+
+def test_adequacy_scenario_validates_inputs():
+    art = _demo_artifact()
+    with pytest.raises(ValueError):
+        adequacy_scenario(art, n_patients=10, current_adequacy=1.5, target_adequacy=0.5,
+                          country="Kenya")
+    with pytest.raises(KeyError):
+        adequacy_scenario(art, n_patients=10, current_adequacy=0.1, target_adequacy=0.5,
+                          country="Nowhere")
+    with pytest.raises(ValueError):
+        adequacy_scenario(art, n_patients=10, current_adequacy=0.1, target_adequacy=0.5,
+                          country="Kenya", currency="euro")
