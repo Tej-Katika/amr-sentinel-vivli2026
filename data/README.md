@@ -5,12 +5,18 @@ must not be redistributed under the Vivli Data Use Agreement.
 
 At analysis time, the following live here (inside the Vivli secure environment):
 
-- `spidaar/` — SPIDAAR cohort (mortality outcomes; Ghana, Kenya, Malawi, Uganda)
-- `atlas/` — Pfizer ATLAS isolates
-- `smart/` — Merck SMART isolates
-- `rd_hub/` — locked Global AMR R&D Hub snapshot (public + philanthropic only).
-  Record the snapshot date in `config.RD_HUB_SNAPSHOT_DATE` and never change it.
-- `who_ghe/` — WHO Global Health Estimates population denominators
+- `spidaar/` — SPIDAAR cohort: patient file (length-of-stay + mortality outcomes;
+  Ghana, Kenya, Malawi, Uganda) and the isolate file (per-mechanism resistance)
+- `atlas/` — Pfizer ATLAS isolates (`atlas_vivli_2004_2024.csv`) — the **only**
+  external surveillance source: **Merck SMART is excluded from the Challenge**, so
+  there is no `smart/`.
+- `rd_hub/` — locked Global AMR R&D Hub snapshot (public + philanthropic only),
+  for the Cross-Domain R&D mismatch (Component 4). Record the snapshot date in
+  `config.RD_HUB_SNAPSHOT_DATE` and never change it.
+
+Country bed-day unit costs (WHO-CHOICE) and GRAM burden figures are external,
+published constants documented/cited in `docs/reference_verified_2026-06-06.md` and
+the analysis modules — not files staged here.
 
 ## What *is* released (per pre-reg §12)
 
