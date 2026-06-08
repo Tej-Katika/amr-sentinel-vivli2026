@@ -6,7 +6,7 @@
 Tejashwar Reddy Katika (Independent Researcher, University of North Texas; Lead) · Akhilesh Reddy Katika (MS Data Science, Flinders University)
 Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0) · **Cross-Domain Award eligible**
 
-> **Draft status.** Figures here are from the development run on the delivered files; the confirmatory run is executed in the Vivli secure environment. Items marked **[GATED]** await a locked Global AMR R&D Hub snapshot or a secure-environment codebook confirmation (noted inline). Every deviation from the pre-registration is logged in `docs/deviation_log.md` and a supplementary OSF addendum.
+> **Draft status.** Figures here are from the development run on the delivered files; the confirmatory run is executed in the Vivli secure environment. Items marked **[GATED]** await a locked Global AMR R&D Hub snapshot (noted inline); the SPIDAAR codebook gates (exposure and adequacy coding) are now resolved. Every deviation from the pre-registration is logged in `docs/deviation_log.md` and a supplementary OSF addendum.
 >
 > **Figures** are regenerated from the committed code and are gitignored under the Data Use Agreement (the public repository carries synthetic-mirror outputs only); the submitted PDF embeds the egress-reviewed versions produced in the secure environment. Figure paths below resolve when the report is built where those files exist.
 
@@ -66,7 +66,7 @@ If resistance itself is not the per-patient driver, the lever is getting the *ri
 
 This ships as a re-runnable **Streamlit what-if tool**: a catchment-region stewardship programme enters its patient volume, current vs target empiric adequacy, and country bed-day cost (WHO-CHOICE: Ghana $6.30, Kenya $5.45, Malawi $3.25, Uganda $3.81 per bed-day, 2010 USD) and reads off projected deaths averted, bed-days added, and cost. The tool carries only a de-identified calibration artifact (no patient records) and labels every output an *ecological-calibration scenario, not an individual effect*.
 
-> **[GATED — secure-env codebook] Gate A.** The adequacy result's *sign* depends on the `txadp` code→label direction (we use adequate=0/inadequate=1, matching the documented 106/52 split and the clinically-coherent death-aversion direction). This must be confirmed against the official codebook before the number is final; flipping two constants is the only change required if it disagrees.
+> **Gate A — resolved (codebook-confirmed).** The adequacy coding (`txadp` Adequate=0, Inadequate=1, Unknown=9) is confirmed against the official SPIDAAR codebook, so the result sign is settled (adequate therapy averts deaths). The exposure coding (`amrp` resistant=2 / susceptible=0) is likewise codebook-confirmed. The analysis remains exploratory only because of the small inadequate arm (n=52), not the coding.
 
 ### 3.4 Burden vs R&D investment (Component 4 — Cross-Domain) [GATED]
 
