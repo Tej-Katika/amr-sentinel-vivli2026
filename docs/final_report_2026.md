@@ -1,0 +1,81 @@
+# The AMR burden paradox in sub-Saharan African hospitals
+
+### A competing-risks reframing of what antibiotic resistance does to patients — and where the leverage to act actually lies
+
+**Vivli 2026 AMR Surveillance Open Data Re-Use Data Challenge — Final Submission (DRAFT)**
+Tejashwar Reddy Katika (Independent Researcher, University of North Texas; Lead) · Akhilesh Reddy Katika (MS Data Science, Flinders University)
+Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0) · **Cross-Domain Award eligible**
+
+> **Draft status.** Figures here are from the development run on the delivered files; the confirmatory run is executed in the Vivli secure environment. Items marked **[GATED]** await a locked Global AMR R&D Hub snapshot or a secure-environment codebook confirmation (noted inline). Every deviation from the pre-registration is logged in `docs/deviation_log.md` and a supplementary OSF addendum.
+
+---
+
+## 1. The question, and why it is not the obvious one
+
+Global models attribute an enormous mortality burden to antimicrobial resistance (AMR) — 1.27 million deaths *attributable* and 4.95 million *associated* in 2019 (Murray et al., *Lancet* 2022) — and sub-Saharan Africa (SSA) carries the highest AMR-attributable death rate of any world region. SPIDAAR is the **only register in the Vivli AMR catalogue that carries patient outcomes** (length-of-stay and mortality) for this region, so it is uniquely positioned to ask the question the burden models cannot answer from surveillance alone: *what does the resistance phenotype actually do to an individual patient, and what follows for stewardship and R&D priorities?*
+
+Our pre-registered plan anchored on a resistance→mortality bridge. After data access, three facts forced a disciplined pivot — and the pivot **is the contribution**:
+
+1. **The mortality contrast is not estimable here.** Resistance status is ascertained for only 156 of 336 patients (135 resistant, **21 susceptible**), with ~17 deaths split across arms. The directly comparable, far larger SSA literature is *null* after adjustment: MBIRA (Aiken et al., *Lancet Infect Dis* 2023; 8 SSA hospitals, 878 bloodstream infections) found 3GC-resistance **not** independently associated with mortality (ratio of cause-specific hazards 0.74, 95% CI 0.42–1.30); the Fiji Enterobacterales cohort (Loftus et al., *JGAR* 2022) was likewise null (aHR 1.13, 0.51–2.53).
+2. **SMART is excluded** from the Challenge, so external surveillance is **ATLAS-only**.
+3. **SPIDAAR uniquely holds length-of-stay**, and excess length-of-stay is detectable where mortality is not (Fiji: null mortality, yet a precise 2.6-day excess-LOS).
+
+So we move the headline onto **resistance-attributable excess bed-days** estimated with **competing risks**, and we let the data tell an honest, counter-intuitive story: in this cohort, as in the authoritative SSA literature, **resistance is not a clean per-patient killer**. The actionable burden is **systemic** — whether a patient receives *adequate empiric therapy* — not the phenotype itself. That reframing motivates a stewardship simulator as the centerpiece and a transparency correction to how AMR burden is costed.
+
+## 2. Data and design
+
+**SPIDAAR** (Ghana, Kenya, Malawi, Uganda): 336 hospitalised patients with healthcare-associated infections; length-of-stay, in-hospital death, severity, ward, empiric-therapy adequacy, and a patient-level resistance summary; plus 244 isolates with per-mechanism resistance. **ATLAS**: 1.0 M isolates, of which 1,519 fall in the catchment; the analysable cell is **Enterobacterales (E. coli + K. pneumoniae) × ceftazidime** (665 isolates; ceftriaxone interpretation is blank in the catchment, and no catchment data exist after 2023). **Global AMR R&D Hub**: public + philanthropic funding, frozen at a dated snapshot.
+
+The exposure is pinned to a defensible contrast — **resistant = `amrp==2`; susceptible = `amrp==0` only** (untested/unascertained excluded). All estimators are competing-risks-aware and reproducible (master seed `20260526`); because the secure environment lacks specialised survival/Bayesian libraries, they are implemented directly in NumPy/pandas and unit-tested on synthetic data (106 tests). Full specification: `docs/analysis_plan_2026.md`.
+
+## 3. Results
+
+### 3.1 Resistance does not prolong stay — a triangulated null (Components 1, 1b, 2)
+
+The headline estimand is the difference in restricted-mean time in the *admitted* state to τ=28 days (excess bed-days), with in-hospital death competing with discharge, time origin at enrolment.
+
+| Estimate | Excess bed-days | Interval |
+|---|---|---|
+| Crude (Aalen-Johansen Δ-RMST) | **−1.65 d** | 95% bootstrap CI [−4.72, +1.88] |
+| Severity-standardised | **−1.87 d** | negative within both severity strata |
+| Bayesian, null-centred prior | **−0.89 d** | 95% HDI [−4.1, +2.7]; P(excess>0)=0.30, P(>1d)=0.14 |
+
+The point estimate is **negative** — resistant patients leave the admitted state *faster*, not slower. The competing-risks decomposition shows why (cumulative incidence at day 28): resistant patients both discharge more (63.3% vs 57.1%) **and** die more (11.9% vs 4.8%), while susceptible patients linger (still-admitted 38.1% vs 24.8%). Both exits truncate bed-day accrual, so naïve length-of-stay comparisons that ignore death are biased.
+
+**Honesty analyses are co-primary, not footnotes (Component 1b).** With 21 susceptible patients the design is underpowered: a simulation under the realised design gives only **21% power** to detect even a 2.6-day true effect, and the credible interval the cohort can deliver is ~9 days wide. The single most valuable next step is the **patient↔isolate re-linkage** we have requested from Vivli: recovering the better-ascertained susceptible arm (3GC-R is ascertained in 204/244 isolates) would roughly halve the interval (to ~4.9 days) and lift power to ~55%. Crucially, the **exposure-ascertainment selection** that could most plausibly fake a result runs the *wrong way*: ascertained patients are longer-staying and lower-mortality (so culturing-driven ascertainment would bias the excess *positive*), yet the result is negative — and it survives inverse-ascertainment reweighting (−1.85 d) and the missing-at-random assignment anchor (−0.61 d).
+
+This triangulates with MBIRA and Fiji: across three independent SSA/LMIC cohorts, resistance is not an independent driver of per-patient length-of-stay or mortality once severity and access are accounted for.
+
+### 3.2 The frame-shift: severe-HAI cohorts run far hotter than surveillance (Component 3)
+
+Because per-country 2025–2030 projections are not data-identified (no catchment ATLAS data after 2023), Step 2 is re-based to a partial-pooled **resistance nowcast** (empirical-Bayes beta-binomial; pooled ceftazidime-R **0.68**; Ghana 0.47, Kenya 0.65, Malawi 0.78, Uganda 0.76) led by a data-availability matrix that states the sparsity up front. Its novel output is a deliberate **frame-contrast**: SPIDAAR's severe-HAI inpatient 3GC-R prevalence is **0.85** against ATLAS mixed-surveillance ceftazidime-R of **0.62**, with the same ordering in every country. The severity/HAI frame shifts measured resistance upward by ~20 percentage points — a transparency caveat for anyone using mixed-surveillance prevalence to reason about inpatient burden.
+
+### 3.3 The leverage is empiric adequacy, not the phenotype (Component 5 — centerpiece)
+
+If resistance per se is not the per-patient driver, the lever is getting the *right empiric drug* to the patient. A competing-risks **g-formula** on empiric-therapy adequacy (`txadp`; 106 adequate / 52 inadequate / 178 unknown) estimates the counterfactual of raising adequacy, with death competing with discharge and resistance treated as a *determinant* of adequacy (a mediator, excluded from the confounder set). The finding is the burden paradox made quantitative and clinically coherent: **adequate empiric therapy averts deaths (+2.6 percentage points) while *adding* bed-days** — because patients who would have died now survive to discharge — and the death-aversion benefit **concentrates in the resistant arm** (+4.7 pp averted; zero in the susceptible arm), exactly where first-line therapy is most likely to fail. Positivity is healthy (4% off-support).
+
+This ships as a re-runnable **Streamlit what-if tool**: a catchment-region stewardship programme enters its patient volume, current vs target empiric adequacy, and country bed-day cost (WHO-CHOICE: Ghana $6.30, Kenya $5.45, Malawi $3.25, Uganda $3.81 per bed-day, 2010 USD) and reads off projected deaths averted, bed-days added, and cost. The tool carries only a de-identified calibration artifact (no patient records) and labels every output an *ecological-calibration scenario, not an individual effect*.
+
+> **[GATED — secure-env codebook] Gate A.** The adequacy result's *sign* depends on the `txadp` code→label direction (we use adequate=0/inadequate=1, matching the documented 106/52 split and the clinically-coherent death-aversion direction). This must be confirmed against the official codebook before the number is final; flipping two constants is the only change required if it disagrees.
+
+### 3.4 Burden vs R&D investment (Component 4 — Cross-Domain) [GATED]
+
+The Cross-Domain index aligns global GRAM burden share with Global AMR R&D Hub public+philanthropic funding share per pathogen (log2 mismatch + Spearman ρ; n=5–6 pathogens, descriptive only, no fitted line), reporting the **non-pathogen-specific (cross-cutting) funding magnitude first** and bounding sparsely-funded pathogens with a pre-specified floor. The machinery is implemented and tested; the numbers are **[GATED]** on a locked Hub snapshot and the GRAM appendix per-pathogen DALYs, deliberately not hard-coded to avoid quoting unverified figures. The argument it serves: if the systemic lever is access and empiric adequacy, R&D alignment should be read against *access and diagnostics*, not novel compounds alone.
+
+## 4. Impact
+
+- **A transparency correction to AMR costing.** "Excess bed-days × cost" attributions that ignore competing mortality over-state the bed-day burden of resistance; our competing-risks estimate, with the death channel made explicit, is the honest version — and it reframes the economic case around empiric adequacy.
+- **An actionable, locally-parameterised tool.** The stewardship simulator converts a defensible counterfactual into bed-days/deaths/cost a programme can act on, re-runnable with local antibiograms and costs.
+- **Honest inputs to the burden debate.** The frame-contrast and the explicit power/precision accounting give modellers and funders calibrated, caveated SSA-HAI inputs where those data are thinnest.
+
+## 5. Limitations (stated plainly)
+
+The susceptible arm (n=21) is small and the headline interval does not exclude zero; we report this as the finding, not around it, and quantify what re-linkage would buy. The patient↔isolate link is broken, so the contrast is patient-level, not within-species. ATLAS catchment coverage is sparse and ends in 2023 (nowcast, not forecast). The Hub captures public+philanthropic funding only. The adequacy analysis is exploratory and Gate-A-dependent. None of these is hidden; each is logged and bounded.
+
+## 6. Reproducibility and deliverables
+
+Open-source pipeline (Apache-2.0, GitHub + Zenodo): SPIDAAR/ATLAS loaders, competing-risks excess-LOS + sensitivity + figure, Bayesian companion, ATLAS nowcast + frame-contrast, R&D mismatch index, the g-formula, and the Streamlit tool; 106 unit tests on synthetic data; pre-registration + deviation log + OSF addendum. No stewardship recommendation is claimed final without local validation; the framework is built as infrastructure for catchment-region researchers, who have been engaged for independent review.
+
+---
+
+*References (separate page): Murray et al., Lancet 2022 (GRAM); Aiken et al., Lancet Infect Dis 2023 (MBIRA); Loftus et al., JGAR 2022 (Fiji); WHO-CHOICE bed-day unit costs (Stenberg et al. 2018); Global AMR R&D Hub dashboard. Full verified figures in `docs/reference_verified_2026-06-06.md`.*
