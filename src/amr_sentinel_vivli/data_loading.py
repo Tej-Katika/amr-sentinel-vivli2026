@@ -92,6 +92,24 @@ SPIDAAR_COLUMNS = (
     "los", "dead", "days_to_death", "days_observed",
 )
 
+# --- ATLAS (Pfizer) panel for the Step-2 catchment nowcast -------------------
+# The delivered ATLAS export stores, per antibiotic, a MIC column (e.g. ``Ceftazidime``)
+# and an interpretation column (e.g. ``Ceftazidime_I`` -> Susceptible/Intermediate/
+# Resistant). Verified in the delivered file (2026-06-07): the catchment is 1,519 of
+# 1,011,168 isolates; Enterobacterales = E. coli + K. pneumoniae (665, all with a
+# ceftazidime interpretation); **ceftriaxone interpretation is blank in the catchment**,
+# so ceftazidime is the only viable 3GC panel cell. Catchment years: Ghana/Malawi/Uganda
+# 2021-2023, Kenya 2013/2014 + 2021-2023, none after 2023 (deviation log 2026-06-07).
+ATLAS_PANEL_SPECIES: tuple[str, ...] = ("Escherichia coli", "Klebsiella pneumoniae")
+ATLAS_PANEL_DRUG = "Ceftazidime"
+# Resistance = Resistant vs ascertained (S+I+R); Intermediate counts as non-resistant.
+# Blank/other interpretations -> NaN (not ascertained, excluded from the denominator).
+_ATLAS_INTERP_TO_RESISTANT = {"Resistant": 1.0, "Susceptible": 0.0, "Intermediate": 0.0}
+ATLAS_COLUMNS = (
+    "isolate_id", "species", "country", "year", "source", "speciality",
+    "drug", "mic", "interpretation", "resistant",
+)
+
 # Analysis-frame columns returned by load_spidaar_isolates. Unlike the patient
 # frame this carries NO outcome (mortality is patient-side only and unlinkable)
 # but DOES carry the per-mechanism resistance detail the patient summary collapses
@@ -309,9 +327,82 @@ def load_spidaar_isolates() -> pd.DataFrame:
     return frame.reset_index(drop=True)
 
 
-def load_atlas() -> pd.DataFrame:
-    """Load Pfizer ATLAS isolates (~917K; pre-reg §5) for the projection backbone."""
-    raise NotImplementedError(_NOT_YET)
+def _build_atlas_frame(raw: pd.DataFrame, drug: str = ATLAS_PANEL_DRUG) -> pd.DataFrame:
+    """Map a raw ATLAS export to the tidy panel frame for one antibiotic.
+
+    Pure function (no I/O) so it can be unit-tested on synthetic rows. Expects the raw
+    ATLAS columns ``Isolate Id, Species, Country, Year, Source, Speciality`` plus the
+    drug's MIC column (``<drug>``) and interpretation column (``<drug>_I``), and returns
+    ``ATLAS_COLUMNS``. ``resistant`` is 1 where the interpretation is "Resistant", 0 for
+    "Susceptible"/"Intermediate", and NaN where the interpretation is missing (excluded
+    from the resistance denominator).
+
+    Resistance is taken from the ATLAS-supplied interpretation (complete for the catchment
+    Enterobacterales × ceftazidime cell). Re-deriving R from the raw MIC under EUCAST v15.0
+    (``config.PRIMARY_BREAKPOINT_REGIME``) is a documented secure-environment refinement
+    (Gate X — MIC string format + breakpoint table to be confirmed); the MIC is carried
+    through (``mic``) so that step can run without re-reading the source.
+    """
+    raw = raw.reset_index(drop=True)
+    interp = raw[f"{drug}_I"]
+    out = pd.DataFrame({
+        "isolate_id": raw["Isolate Id"],
+        "species": raw["Species"],
+        "country": raw["Country"],
+        "year": pd.to_numeric(raw["Year"], errors="coerce").astype("Int64"),
+        "source": raw["Source"],
+        "speciality": raw["Speciality"],
+        "drug": drug,
+        "mic": raw[drug],
+        "interpretation": interp,
+        "resistant": interp.map(_ATLAS_INTERP_TO_RESISTANT).astype("Int64"),
+    })
+    return out[list(ATLAS_COLUMNS)]
+
+
+def _validate_atlas(df: pd.DataFrame, catchment_only: bool) -> None:
+    """Fail fast on the invariants the Step-2 nowcast relies on."""
+    if catchment_only:
+        stray = set(df["country"].dropna()) - set(config.CATCHMENT_COUNTRIES)
+        if stray:
+            raise ValueError(f"ATLAS rows outside the catchment: {sorted(stray)}")
+    vals = set(df["resistant"].dropna().astype(int))
+    if not vals <= {0, 1}:
+        raise ValueError(
+            f"resistant must be binary 0/1 (NaN where not ascertained); got {sorted(vals)}")
+    yrs = df["year"].dropna().astype(int)
+    if len(yrs) and (yrs.min() < 2000 or yrs.max() > 2100):
+        raise ValueError(f"Implausible ATLAS year range: {yrs.min()}-{yrs.max()}")
+
+
+def load_atlas(
+    drug: str = ATLAS_PANEL_DRUG,
+    species: tuple[str, ...] | None = ATLAS_PANEL_SPECIES,
+    catchment_only: bool = True,
+) -> pd.DataFrame:
+    """Load Pfizer ATLAS isolates (pre-reg §5) for the Step-2 catchment nowcast.
+
+    Reads ``data/atlas/atlas_vivli_2004_2024.csv`` (only the columns needed for ``drug``),
+    optionally restricts to ``species`` (default the Enterobacterales panel carriers) and
+    to ``config.CATCHMENT_COUNTRIES`` (default True), and returns the tidy ``ATLAS_COLUMNS``
+    frame with a binary ceftazidime ``resistant`` flag. With the defaults this is the ~665
+    catchment Enterobacterales × ceftazidime isolates the nowcast and frame-contrast use;
+    pass ``catchment_only=False`` / ``species=None`` for the full ATLAS backbone.
+
+    SMART is excluded from the Challenge (deviation log 2026-06-07); ATLAS is the only
+    external isolate-surveillance source.
+    """
+    path = config.DATA_DIR / "atlas" / "atlas_vivli_2004_2024.csv"
+    usecols = ["Isolate Id", "Species", "Country", "Year", "Source", "Speciality",
+               drug, f"{drug}_I"]
+    raw = pd.read_csv(path, usecols=usecols, low_memory=False)
+    if species is not None:
+        raw = raw[raw["Species"].isin(species)]
+    if catchment_only:
+        raw = _restrict_to_catchment(raw, country_col="Country")
+    frame = _build_atlas_frame(raw, drug)
+    _validate_atlas(frame, catchment_only)
+    return frame.reset_index(drop=True)
 
 
 def load_smart() -> pd.DataFrame:
