@@ -7,6 +7,8 @@ Tejashwar Reddy Katika (Independent Researcher, University of North Texas; Lead)
 Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0) · **Cross-Domain Award eligible**
 
 > **Draft status.** Figures here are from the development run on the delivered files; the confirmatory run is executed in the Vivli secure environment. Items marked **[GATED]** await a locked Global AMR R&D Hub snapshot or a secure-environment codebook confirmation (noted inline). Every deviation from the pre-registration is logged in `docs/deviation_log.md` and a supplementary OSF addendum.
+>
+> **Figures** are regenerated from the committed code and are gitignored under the Data Use Agreement (the public repository carries synthetic-mirror outputs only); the submitted PDF embeds the egress-reviewed versions produced in the secure environment. Figure paths below resolve when the report is built where those files exist.
 
 ---
 
@@ -42,6 +44,10 @@ The headline estimand is the difference in restricted-mean time in the *admitted
 
 The point estimate is **negative** — resistant patients leave the admitted state *faster*, not slower. The competing-risks decomposition shows why (cumulative incidence at day 28): resistant patients both discharge more (63.3% vs 57.1%) **and** die more (11.9% vs 4.8%), while susceptible patients linger (still-admitted 38.1% vs 24.8%). Both exits truncate bed-day accrual, so naïve length-of-stay comparisons that ignore death are biased.
 
+![Bed occupancy by resistance arm and competing outcomes at day 28](../figures/excess_los_stateoccupation.png)
+
+***Figure 1.** Left: probability of remaining admitted over time by arm — the area between the curves to τ=28 is the excess bed-days (resistant occupancy sits below susceptible). Right: competing discharge / death / still-admitted cumulative incidence at day 28. Resistant patients exit faster by both routes; susceptible patients linger.*
+
 **Honesty analyses are co-primary, not footnotes (Component 1b).** With 21 susceptible patients the design is underpowered: a simulation under the realised design gives only **21% power** to detect even a 2.6-day true effect, and the credible interval the cohort can deliver is ~9 days wide. The single most valuable next step is the **patient↔isolate re-linkage** we have requested from Vivli: recovering the better-ascertained susceptible arm (3GC-R is ascertained in 204/244 isolates) would roughly halve the interval (to ~4.9 days) and lift power to ~55%. Crucially, the **exposure-ascertainment selection** that could most plausibly fake a result runs the *wrong way*: ascertained patients are longer-staying and lower-mortality (so culturing-driven ascertainment would bias the excess *positive*), yet the result is negative — and it survives inverse-ascertainment reweighting (−1.85 d) and the missing-at-random assignment anchor (−0.61 d).
 
 This triangulates with MBIRA and Fiji: across three independent SSA/LMIC cohorts, resistance is not an independent driver of per-patient length-of-stay or mortality once severity and access are accounted for.
@@ -49,6 +55,10 @@ This triangulates with MBIRA and Fiji: across three independent SSA/LMIC cohorts
 ### 3.2 The frame-shift: severe-HAI cohorts run far hotter than surveillance (Component 3)
 
 Because per-country 2025–2030 projections are not data-identified (no catchment ATLAS data after 2023), Step 2 is re-based to a partial-pooled **resistance nowcast** (empirical-Bayes beta-binomial; pooled ceftazidime-R **0.68**; Ghana 0.47, Kenya 0.65, Malawi 0.78, Uganda 0.76) led by a data-availability matrix that states the sparsity up front. Its novel output is a deliberate **frame-contrast**: SPIDAAR's severe-HAI inpatient 3GC-R prevalence is **0.85** against ATLAS mixed-surveillance ceftazidime-R of **0.62**, with the same ordering in every country. The severity/HAI frame shifts measured resistance upward by ~20 percentage points — a transparency caveat for anyone using mixed-surveillance prevalence to reason about inpatient burden.
+
+![SPIDAAR severe-HAI vs ATLAS surveillance 3GC resistance by country](../figures/spidaar_framecontrast.png)
+
+***Figure 2.** 3GC resistance prevalence (Wilson intervals) in the comparable Enterobacterales panel: ATLAS mixed surveillance (ceftazidime-R) vs SPIDAAR severe-HAI inpatients (3GC-R), by country and overall. The severe-HAI frame runs higher in every country.*
 
 ### 3.3 The leverage is empiric adequacy, not the phenotype (Component 5 — centerpiece)
 
