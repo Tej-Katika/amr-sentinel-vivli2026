@@ -5,7 +5,9 @@ Tests pre-registered hypothesis **H1**: resistant infections carry a higher
 propensity-score IPTW adjustment. Reports HR, 95% CI, Schoenfeld PH test, and
 the VanderWeele e-value for unmeasured confounding.
 
-Pre-data scaffold — implement after Vivli data access (pre-reg §15).
+SUPERSEDED by the excess-LOS pivot (see docs/strategy_2026.md): 30-day mortality is
+demoted to an honestly-underpowered secondary, so this module is retained for provenance
+rather than run as the primary Step 1. Pre-data scaffold otherwise.
 """
 
 from __future__ import annotations
@@ -13,8 +15,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pandas as pd
-
-from . import config
 
 _NOT_YET = "Pre-data scaffold — implement Step 1 after Vivli data access (pre-reg §15)."
 

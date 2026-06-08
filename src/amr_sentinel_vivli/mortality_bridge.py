@@ -5,7 +5,9 @@ Step 2 projected resistance rates through the population-attributable-fraction
 formulation, scaled by WHO Global Health Estimates population denominators.
 Uncertainty is propagated by a ``config.MONTE_CARLO_DRAWS``-draw Monte Carlo.
 
-Pre-data scaffold — implement after Vivli data access (pre-reg §15).
+SUPERSEDED by the excess-LOS pivot (see docs/strategy_2026.md): the resistance→mortality
+bridge is replaced by the excess-bed-day burden (Component 1) and the empiric-adequacy
+g-formula (Component 5); retained for provenance. Pre-data scaffold otherwise.
 """
 
 from __future__ import annotations
