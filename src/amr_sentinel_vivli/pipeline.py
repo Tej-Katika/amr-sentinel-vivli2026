@@ -10,6 +10,7 @@ the delivered data inside the Vivli secure environment.
 from __future__ import annotations
 
 from . import data_loading
+from .bayesian_excess_los import bayesian_excess_los, prior_sensitivity
 from .bayesian_projection import frame_contrast, run_nowcast
 from .excess_los import bootstrap_excess_los_ci, cif_decomposition, standardized_excess_los
 from .excess_los_sensitivity import (
@@ -37,6 +38,12 @@ def run() -> dict:
         "bounds": exposure_assignment_bounds(spidaar),
     }
 
+    # Component 2 (secondary): Bayesian partial-pooled excess bed-days
+    bayesian = {
+        "posterior": bayesian_excess_los(spidaar),
+        "prior_sensitivity": prior_sensitivity(spidaar),
+    }
+
     # Component 3: ATLAS-only catchment nowcast + SPIDAAR frame-contrast
     nowcast = run_nowcast(atlas)
     contrast = frame_contrast(atlas, spidaar_isolates)
@@ -53,6 +60,7 @@ def run() -> dict:
         "cif": cif,
         "power_simulation": power,
         "ascertainment_sensitivity": ascertainment,
+        "bayesian_excess_los": bayesian,
         "nowcast": nowcast,
         "frame_contrast": contrast,
         "stewardship": stewardship,
