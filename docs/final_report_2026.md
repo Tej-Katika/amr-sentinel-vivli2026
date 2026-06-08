@@ -22,7 +22,7 @@ Our pre-registered plan anchored on a resistance→mortality bridge. After data 
 2. **SMART is excluded** from the Challenge, so external surveillance is **ATLAS-only**.
 3. **SPIDAAR uniquely holds length-of-stay**, and excess length-of-stay is detectable where mortality is not (Fiji: null mortality, yet a precise 2.6-day excess-LOS).
 
-So we move the headline onto **resistance-attributable excess bed-days** estimated with **competing risks**, and we let the data tell an honest, counter-intuitive story: in this cohort, as in the authoritative SSA literature, **resistance is not a clean per-patient killer**. The actionable burden is **systemic** — whether a patient receives *adequate empiric therapy* — not the phenotype itself. That reframing motivates a stewardship simulator as the centerpiece and a transparency correction to how AMR burden is costed.
+So we move the headline onto **resistance-attributable excess bed-days** estimated with **competing risks**, and let the data tell an honest, counter-intuitive story: in this cohort, as in the authoritative SSA literature, **resistance is not a clean per-patient killer**. The actionable burden is **systemic** — whether a patient receives *adequate empiric therapy* — not the phenotype itself. This reframing is the contribution: it turns an underpowered, contradicted mortality question into a tractable, decision-relevant one, and points two deliverables at the real lever — an empiric-adequacy stewardship simulator (the centerpiece) and a competing-risks correction to how AMR burden is costed.
 
 ## 2. Data and design
 
@@ -62,7 +62,7 @@ Because per-country 2025–2030 projections are not data-identified (no catchmen
 
 ### 3.3 The leverage is empiric adequacy, not the phenotype (Component 5 — centerpiece)
 
-If resistance per se is not the per-patient driver, the lever is getting the *right empiric drug* to the patient. A competing-risks **g-formula** on empiric-therapy adequacy (`txadp`; 106 adequate / 52 inadequate / 178 unknown) estimates the counterfactual of raising adequacy, with death competing with discharge and resistance treated as a *determinant* of adequacy (a mediator, excluded from the confounder set). The finding is the burden paradox made quantitative and clinically coherent: **adequate empiric therapy averts deaths (+2.6 percentage points) while *adding* bed-days** — because patients who would have died now survive to discharge — and the death-aversion benefit **concentrates in the resistant arm** (+4.7 pp averted; zero in the susceptible arm), exactly where first-line therapy is most likely to fail. Positivity is healthy (4% off-support).
+If resistance itself is not the per-patient driver, the lever is getting the *right empiric drug* to the patient. A competing-risks **g-formula** on empiric-therapy adequacy (`txadp`; 106 adequate / 52 inadequate / 178 unknown) estimates the counterfactual of raising adequacy, with death competing with discharge. Resistance is treated as a *determinant* of adequacy — a mediator, so it is excluded from the confounder set. The result is the burden paradox made quantitative and clinically coherent: **adequate empiric therapy averts deaths (+2.6 percentage points) while *adding* bed-days**, because patients who would have died now survive to discharge. The death-aversion benefit **concentrates in the resistant arm** (+4.7 pp averted; zero in the susceptible arm) — exactly where first-line therapy is most likely to fail. Positivity is healthy (4% off-support).
 
 This ships as a re-runnable **Streamlit what-if tool**: a catchment-region stewardship programme enters its patient volume, current vs target empiric adequacy, and country bed-day cost (WHO-CHOICE: Ghana $6.30, Kenya $5.45, Malawi $3.25, Uganda $3.81 per bed-day, 2010 USD) and reads off projected deaths averted, bed-days added, and cost. The tool carries only a de-identified calibration artifact (no patient records) and labels every output an *ecological-calibration scenario, not an individual effect*.
 
@@ -72,11 +72,16 @@ This ships as a re-runnable **Streamlit what-if tool**: a catchment-region stewa
 
 The Cross-Domain index aligns global GRAM burden share with Global AMR R&D Hub public+philanthropic funding share per pathogen (log2 mismatch + Spearman ρ; n=5–6 pathogens, descriptive only, no fitted line), reporting the **non-pathogen-specific (cross-cutting) funding magnitude first** and bounding sparsely-funded pathogens with a pre-specified floor. The machinery is implemented and tested; the numbers are **[GATED]** on a locked Hub snapshot and the GRAM appendix per-pathogen DALYs, deliberately not hard-coded to avoid quoting unverified figures. The argument it serves: if the systemic lever is access and empiric adequacy, R&D alignment should be read against *access and diagnostics*, not novel compounds alone.
 
-## 4. Impact
+## 4. Innovation and impact
 
-- **A transparency correction to AMR costing.** "Excess bed-days × cost" attributions that ignore competing mortality over-state the bed-day burden of resistance; our competing-risks estimate, with the death channel made explicit, is the honest version — and it reframes the economic case around empiric adequacy.
-- **An actionable, locally-parameterised tool.** The stewardship simulator converts a defensible counterfactual into bed-days/deaths/cost a programme can act on, re-runnable with local antibiograms and costs.
-- **Honest inputs to the burden debate.** The frame-contrast and the explicit power/precision accounting give modellers and funders calibrated, caveated SSA-HAI inputs where those data are thinnest.
+**Innovation.** The novelty is not the estimator — competing-risks length-of-stay is established — but the *reframing*: identifying excess bed-days under a broken patient↔isolate link in an LMIC HAI cohort, turning the resulting null into a systemic-leverage thesis, and shipping it as a re-runnable local-calibration tool. We treat the small-sample limitation as a quantified result, not a caveat to hide.
+
+**Impact.**
+
+- **A transparency correction to AMR costing.** "Excess bed-days × cost" attributions that ignore competing mortality over-state the bed-day burden of resistance; making the death channel explicit (resistant patients exit *faster*, partly by dying) yields the honest figure and shifts the economic case onto empiric adequacy.
+- **An actionable, locally-parameterised tool.** The stewardship simulator converts a defensible counterfactual — adequacy averts deaths, concentrated in the resistant arm — into deaths/bed-days/cost a programme can act on, re-runnable with local antibiograms and WHO-CHOICE costs.
+- **R&D realignment (Cross-Domain).** If access and empiric adequacy are the lever, the mismatch index argues for reading R&D alignment against access and diagnostics, not novel compounds alone.
+- **Honest inputs to the burden debate.** The frame-contrast (severe-HAI 0.85 vs surveillance 0.62) and the explicit power/precision accounting give modellers and funders calibrated, caveated SSA-HAI inputs where those data are thinnest.
 
 ## 5. Limitations (stated plainly)
 
