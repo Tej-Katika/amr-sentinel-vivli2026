@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "source": "synthetic-demo (no real patient data)",
+    "covariates": [
+      "severity_bin",
+      "country"
+    ],
+    "tau": 28,
+    "min_cell_n": 5,
+    "n_ascertained": 320,
+    "n_on_support": 320,
+    "n_strata_supported": 8,
+    "n_cells_below_min_n_suppressed": 0,
+    "gate_a_note": "txadp coding adequate=0, inadequate=1 \u2014 UNVERIFIED vs official codebook; this direction flips the sign of every scenario."
+  },
+  "per_patient": {
+    "pooled": {
+      "bed_days_set_adequate": 13.68125,
+      "bed_days_set_inadequate": 9.637500000000001,
+      "delta_bed_days_per_upgrade": 4.043749999999999,
+      "averted_death_per_upgrade": 0.12499999999999999,
+      "n_on_support": 320
+    },
+    "resistant": {
+      "bed_days_set_adequate": 13.6625,
+      "bed_days_set_inadequate": 9.5,
+      "delta_bed_days_per_upgrade": 4.1625,
+      "averted_death_per_upgrade": 0.11250000000000002,
+      "n_on_support": 160
+    },
+    "susceptible": {
+      "bed_days_set_adequate": 13.7,
+      "bed_days_set_inadequate": 9.775,
+      "delta_bed_days_per_upgrade": 3.924999999999999,
+      "averted_death_per_upgrade": 0.1375,
+      "n_on_support": 160
+    }
+  },
+  "unit_cost_usd2010": {
+    "Ghana": 6.3,
+    "Kenya": 5.45,
+    "Malawi": 3.25,
+    "Uganda": 3.81
+  },
+  "unit_cost_ppp_intl": {
+    "Ghana": [
+      14.28,
+      5.94,
+      32.5
+    ],
+    "Kenya": [
+      14.03,
+      5.54,
+      30.87
+    ],
+    "Malawi": [
+      6.53,
+      2.58,
+      14.13
+    ],
+    "Uganda": [
+      10.25,
+      4.08,
+      23.83
+    ]
+  }
+}
