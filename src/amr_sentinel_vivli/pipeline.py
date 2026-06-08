@@ -1,40 +1,62 @@
-"""End-to-end orchestration of the five pre-registered steps (pre-reg §7).
+"""End-to-end orchestration of the pivoted analysis (see docs/strategy_2026.md).
 
-Documents the intended data flow. Each call delegates to a step module that is a
-pre-data stub until Vivli data access (pre-reg §15), so running this now raises
-``NotImplementedError`` at the first step — by design.
+The headline moved from a resistance→mortality bridge to resistance-attributable
+**excess bed-days** (competing risks), with the empiric-adequacy g-formula as the
+systemic-leverage centerpiece; SMART is excluded so external surveillance is ATLAS-only
+(a catchment nowcast + SPIDAAR frame-contrast, not a 2030 projection). Components run on
+the delivered data inside the Vivli secure environment.
 """
 
 from __future__ import annotations
 
 from . import data_loading
-from .bayesian_projection import fit_projection
-from .cox_mortality import fit_cox_mortality
-from .mortality_bridge import bridge_to_mortality
-from .rd_alignment import analyze_alignment
+from .bayesian_projection import frame_contrast, run_nowcast
+from .excess_los import bootstrap_excess_los_ci, cif_decomposition, standardized_excess_los
+from .excess_los_sensitivity import (
+    ascertainment_weighted_excess_los,
+    exposure_assignment_bounds,
+    simulate_rmst_precision,
+)
 from .stewardship_gformula import run_stewardship_gformula
 
 
-def run() -> None:
-    """Run Steps 1-5 in order. Intended to execute inside the Vivli environment."""
+def run() -> dict:
+    """Run the pivoted components in order on the delivered Vivli data."""
     spidaar = data_loading.load_spidaar()
+    spidaar_isolates = data_loading.load_spidaar_isolates()
     atlas = data_loading.load_atlas()
-    smart = data_loading.load_smart()
-    rd_hub = data_loading.load_rd_hub_snapshot()
 
-    cox = fit_cox_mortality(spidaar)                       # Step 1 (H1)
-    projection = fit_projection(_combine(atlas, smart))    # Step 2 (H2)
-    burden = bridge_to_mortality(cox, projection, _who_ghe_denominators())  # Step 3
-    _alignment = analyze_alignment(burden, rd_hub)         # Step 4 (H3)
-    _intervention = run_stewardship_gformula(spidaar)      # Step 5 (empiric-adequacy g-formula)
+    # Component 1 (primary) + 1b (co-primary honesty analyses)
+    excess = bootstrap_excess_los_ci(spidaar)
+    excess_std = standardized_excess_los(spidaar)
+    cif = cif_decomposition(spidaar)
+    power = simulate_rmst_precision(excess_std["standardized_rmst_susceptible"],
+                                    n_resistant=135, n_susceptible=21)
+    ascertainment = {
+        "weighted": ascertainment_weighted_excess_los(spidaar),
+        "bounds": exposure_assignment_bounds(spidaar),
+    }
 
+    # Component 3: ATLAS-only catchment nowcast + SPIDAAR frame-contrast
+    nowcast = run_nowcast(atlas)
+    contrast = frame_contrast(atlas, spidaar_isolates)
 
-def _combine(atlas, smart):
-    raise NotImplementedError("Pre-data scaffold (pre-reg §15).")
+    # Component 5: empiric-adequacy stewardship g-formula (centerpiece)
+    stewardship = run_stewardship_gformula(spidaar)
 
+    # Component 4 (R&D mismatch, Cross-Domain) is gated on the locked Hub snapshot
+    # (config.RD_HUB_SNAPSHOT_DATE) — see rd_alignment.
 
-def _who_ghe_denominators():
-    raise NotImplementedError("Pre-data scaffold (pre-reg §15).")
+    return {
+        "excess_los": excess,
+        "excess_los_standardized": excess_std,
+        "cif": cif,
+        "power_simulation": power,
+        "ascertainment_sensitivity": ascertainment,
+        "nowcast": nowcast,
+        "frame_contrast": contrast,
+        "stewardship": stewardship,
+    }
 
 
 if __name__ == "__main__":
