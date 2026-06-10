@@ -51,9 +51,51 @@ GRAM_PANEL: dict = {
     "combined_attributable_deaths_2019": 929_000,   # (660 000-1 270 000)
     "combined_associated_deaths_2019": 3_570_000,    # (2.62-4.78 million)
     "all_pathogens_total_dalys_2019": 47_900_000,    # across all 23 pathogens
+    # Verified rank orderings (Murray 2022 main text, p638). Exact per-pathogen
+    # death/DALY MAGNITUDES live in the GRAM appendix / figure 4 (not the main text)
+    # and are supplied at call time; do NOT substitute the all-cause bacterial-
+    # infection deaths from Ikuta et al. 2022 ("one in eight deaths") — a different
+    # paper and a common conflation (see docs/reference_rd_alignment_2026-06-09.md).
+    "rank_by_associated_deaths": [
+        "Escherichia coli", "Staphylococcus aureus", "Klebsiella pneumoniae",
+        "Streptococcus pneumoniae", "Acinetobacter baumannii", "Pseudomonas aeruginosa",
+    ],
+    "rank_by_attributable_deaths": [
+        "Escherichia coli", "Klebsiella pneumoniae", "Staphylococcus aureus",
+        "Acinetobacter baumannii", "Streptococcus pneumoniae", "Mycobacterium tuberculosis",
+    ],
     "source": "Murray et al., Lancet 2022 (GRAM 2019); PMC8841637",
-    "note": "Per-pathogen DALYs are appendix-sourced and passed to the index functions; "
-            "not hard-coded here.",
+    "note": "Per-pathogen DALYs/deaths are appendix-sourced and passed to the index "
+            "functions; not hard-coded here.",
+}
+
+# Locked funding snapshot (the index denominator). Verified figures from Czaplewski
+# et al., "An overview of global public and philanthropic investments into
+# antibacterial therapeutics (2017-23)", Lancet Microbe 2026 (epub 2026-01-09;
+# doi:10.1016/S2666-5247(25)00216-2) — a frozen, peer-reviewed extract of the Global
+# AMR R&D Hub Dynamic Dashboard. All values are US$ millions, public + philanthropic,
+# 2017-2023. Named per-pathogen amounts are quoted verbatim from the paper; the three
+# lowest-funded named GRAM species (E. coli, A. baumannii, K. pneumoniae) have exact
+# magnitudes only in appendix 1 p18 (below P. aeruginosa in figure 3B), so they are
+# folded into ``other_species_specific_musd`` here and supplied per-pathogen at call
+# time for the numeric index. See docs/reference_rd_alignment_2026-06-09.md.
+RD_HUB_SNAPSHOT_2026: dict = {
+    "total_funding_musd": 2510.0,        # "US$2.51 billion ... by 130 funders"
+    "n_funders": 130,
+    "species_specific_total_musd": 1058.0,   # "$1058 million of species-specific funds"
+    "named_species_funding_musd": {
+        "Mycobacterium tuberculosis": 474.0,   # "a fifth of the overall funds ... $474M"
+        "Staphylococcus aureus": 142.0,        # "13% of $1058M ...; n=87"
+        "Clostridioides difficile": 141.0,     # "13%, n=47"
+        "Neisseria gonorrhoeae": 101.0,        # "10%, n=27"
+        "Pseudomonas aeruginosa": 87.0,        # "8%, n=73"
+    },
+    # species-specific funding not in the named top-five (incl. the GRAM Gram-negatives
+    # E. coli, A. baumannii, K. pneumoniae, which rank BELOW P. aeruginosa in figure 3B):
+    "other_species_specific_musd": 113.0,    # 1058 - (474+142+141+101+87)
+    # S. pneumoniae does not appear among species-specific targets (figure 3B): ~0.
+    "unfunded_gram_panel_species": ["Streptococcus pneumoniae"],
+    "source": "Czaplewski et al., Lancet Microbe 2026 (epub 2026-01-09)",
 }
 
 
@@ -73,6 +115,25 @@ def cross_cutting_share(funding_by_pathogen: dict, cross_cutting_funding: float)
         "cross_cutting_fraction": frac,
         "flagged": bool(frac > 0.5),
     }
+
+
+def cross_cutting_headline(snapshot: dict | None = None) -> dict:
+    """The de-gated Component-4 headline: how little antibacterial R&D is pathogen-specific.
+
+    Computed straight from the locked Czaplewski/Hub snapshot (``RD_HUB_SNAPSHOT_2026``),
+    so it needs no per-pathogen burden and no appendix magnitudes. Reuses
+    :func:`cross_cutting_share`. The headline finding: pathogen-specific funding is a
+    MINORITY of total antibacterial R&D, so ``flagged`` is True and every per-pathogen
+    caveat widens accordingly.
+    """
+    s = RD_HUB_SNAPSHOT_2026 if snapshot is None else snapshot
+    funding_by_pathogen = dict(s["named_species_funding_musd"])
+    funding_by_pathogen["Other species-specific"] = s["other_species_specific_musd"]
+    cross_cutting = s["total_funding_musd"] - s["species_specific_total_musd"]
+    head = cross_cutting_share(funding_by_pathogen, cross_cutting)
+    head["source"] = s["source"]
+    head["total_funding_musd"] = s["total_funding_musd"]
+    return head
 
 
 def mismatch_index(
@@ -234,7 +295,8 @@ def analyze_alignment(
 def alignment_caption() -> str:
     """Standard figure-caption suffix required on every Component-4 figure."""
     return (
-        f"Global AMR R&D Hub snapshot {config.RD_HUB_SNAPSHOT_DATE}; "
-        f"{config.RD_HUB_SCOPE}; window {config.RD_HUB_WINDOW[0]}-{config.RD_HUB_WINDOW[1]}. "
+        f"Global AMR R&D Hub snapshot {config.RD_HUB_SNAPSHOT_DATE} "
+        f"({config.RD_HUB_SOURCE}); {config.RD_HUB_SCOPE}; "
+        f"window {config.RD_HUB_WINDOW[0]}-{config.RD_HUB_WINDOW[1]}. "
         f"Burden: {GRAM_PANEL['source']}."
     )

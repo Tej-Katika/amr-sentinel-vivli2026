@@ -6,8 +6,10 @@ import pytest
 from amr_sentinel_vivli import config
 from amr_sentinel_vivli.rd_alignment import (
     GRAM_PANEL,
+    RD_HUB_SNAPSHOT_2026,
     alignment_caption,
     analyze_alignment,
+    cross_cutting_headline,
     cross_cutting_share,
     mismatch_index,
     monte_carlo_mismatch_ranking,
@@ -96,3 +98,23 @@ def test_alignment_caption_carries_scope(monkeypatch):
     monkeypatch.setattr(config, "RD_HUB_SNAPSHOT_DATE", "2026-06-08")
     cap = alignment_caption()
     assert "2026-06-08" in cap and "public + philanthropic" in cap
+
+
+def test_rd_hub_snapshot_named_funding_sums_to_species_specific():
+    # Named top-five + the folded "other" bucket must reconstruct the species-specific
+    # total ($1058M); guards the verified figures against silent edits.
+    named = sum(RD_HUB_SNAPSHOT_2026["named_species_funding_musd"].values())
+    total = named + RD_HUB_SNAPSHOT_2026["other_species_specific_musd"]
+    assert total == pytest.approx(RD_HUB_SNAPSHOT_2026["species_specific_total_musd"])
+    assert "Czaplewski" in RD_HUB_SNAPSHOT_2026["source"]
+
+
+def test_cross_cutting_headline_is_flagged_majority():
+    # The de-gated headline: pathogen-specific R&D is a MINORITY of the $2.51B total
+    # ($1058M / $2510M = 42%), so cross-cutting is the majority and the flag fires.
+    head = cross_cutting_headline()
+    assert head["pathogen_specific_funding"] == pytest.approx(1058.0)
+    assert head["total_funding"] == pytest.approx(2510.0)
+    assert head["cross_cutting_fraction"] == pytest.approx(1452.0 / 2510.0, rel=1e-6)
+    assert head["flagged"] is True
+    assert "Czaplewski" in head["source"]
