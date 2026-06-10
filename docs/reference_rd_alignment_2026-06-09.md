@@ -71,10 +71,31 @@ open-access full text (Europe PMC render PDF).
 | E. coli & K. pneumoniae | each ≈200,000 attributable deaths | Oxford GRAM news: "two bacteria each caused close to 200,000 deaths in one year from AMR" |
 | All-pathogen DALYs (23) | 47.9M | (documented in `GRAM_PANEL`) |
 
-### NOT yet extracted (appendix-locked — do NOT guess)
-Exact per-pathogen global **AMR-associated / attributable death counts and DALYs**
-(+95% UI) live in **GRAM figure 4 / appendix**, not the main text. Pull these for the
-numeric index Monte-Carlo (`monte_carlo_mismatch_ranking` wants (median, lo95, hi95)).
+### Per-pathogen burden — EXTRACTED & VERIFIED (GRAM appendix 1, Table S22)
+Pulled 2026-06-09 from the GRAM supplementary `mmc1.pdf` (Europe PMC supplementary bundle
+for PMC8841637), Table S22 "Global deaths and DALYs … by pathogen-drug combination, 2019",
+the **'Resistance to one or more antibiotics'** aggregate row per pathogen. Counts in
+**thousands (median, 95% UI)**. Now shipped verbatim as `rd_alignment.GRAM_BURDEN_2019`.
+
+| Pathogen | Assoc. deaths | Attrib. deaths | Assoc. DALYs | Attrib. DALYs |
+|---|---|---|---|---|
+| E. coli | 829 (601–1120) | 219 (152–316) | 28,000 (21,000–36,900) | 7,520 (5,270–10,500) |
+| S. aureus | 748 (554–1000) | 178 (104–280) | 24,900 (18,600–32,700) | 5,870 (3,550–9,220) |
+| K. pneumoniae | 642 (465–863) | 193 (130–272) | 27,400 (20,300–36,100) | 8,200 (5,550–11,400) |
+| S. pneumoniae | 596 (490–727) | 122 (82.4–166) | 29,800 (24,400–36,700) | 6,110 (4,050–8,330) |
+| A. baumannii | 423 (252–647) | 132 (75.7–213) | 11,800 (7,290–17,800) | 3,670 (2,150–5,760) |
+| P. aeruginosa | 334 (234–457) | 84.6 (53–127) | 12,000 (8,630–16,100) | 3,050 (1,980–4,530) |
+
+**Self-consistency (transcription check):** associated-death medians sum to **3,572k = 3.57M**
+and attributable to **928.6k ≈ 929k** — both match the headline totals exactly; the
+associated and attributable rank orders both match the main text. (Guarded by a unit test.)
+
+### The ONE remaining un-fetched value (appendix-locked, propagated not guessed)
+The $113M species-specific split among **E. coli / A. baumannii / K. pneumoniae** is in
+Czaplewski appendix 1 p18 (Elsevier paywall; no PMC, no open supplement — three routes
+tried and exhausted). It is bounded exactly (sum $113M, ordered E>A>K, each <$87M;
+S. pneumoniae below the smallest shown bar) and **propagated as Monte-Carlo uncertainty**
+in `gram_panel_alignment`, not hard-coded. The under-funded ranking is invariant to it.
 
 ### ⚠ Conflation guard (caught during this pull)
 The figures **S. aureus 1.1M / E. coli 950k / S. pneumoniae 829k / K. pneumoniae 790k
@@ -86,19 +107,22 @@ of citation error as the MBIRA mix-up; logged so it isn't repeated.)
 
 ---
 
-## 3. What is wired vs. still gated
+## 3. Closed-out index — computed results (`gram_panel_alignment`)
 
-- **Wired now (verified, de-gated):** the cross-cutting headline
-  (`cross_cutting_headline()` → 57.8% non-pathogen-specific, flagged) and the
-  qualitative inverse-mismatch narrative (highest-burden Gram-negatives + S.
-  pneumoniae are the least funded; pathogen-specific spend is dominated by TB and
-  Gram-positive/niche targets). Snapshot date + source locked in `config`.
-- **Still gated (machinery built + tested, awaiting exact magnitudes):** the numeric
-  per-pathogen `mismatch_index` / `spearman_burden_funding` / `monte_carlo_mismatch_
-  ranking` on the GRAM-6 panel. Needs: (a) Czaplewski appendix 1 p18 per-species $ for
-  E. coli / A. baumannii / K. pneumoniae; (b) GRAM appendix per-pathogen deaths/DALYs
-  + 95% UI. Both are public; neither was cleanly extractable from a figure via web
-  fetch this session.
+Monte-Carlo over the GRAM burden UIs and the one unfetched funding split, floor 0.02,
+20,000 draws, seed `step_seed(4)`:
+
+- **Cross-cutting: 57.8% non-pathogen-specific (flagged).**
+- **Spearman ρ:** +0.14 (associated deaths) · +0.03 (attributable deaths) · −0.49
+  (attributable DALYs); CI ≈ ±1 at n=6 → **no positive alignment** with burden.
+- **Under-funded ranking (log2 mismatch median; robust to the split):**
+  S. pneumoniae **+2.9** › K. pneumoniae **+2.0** › E. coli **+0.5** › A. baumannii **+0.1**
+  › S. aureus **−1.0** › P. aeruginosa **−1.4**. S. pneumoniae + K. pneumoniae carry ≈99%
+  of the "most under-funded" probability; S. aureus and P. aeruginosa are over-funded.
+
+This is the descriptive Cross-Domain finding for report §3.4. Secure-env upgrade: drop in
+the Czaplewski appendix p18 exact split (collapses the only remaining funding uncertainty;
+ranking unchanged).
 
 ## Sources
 - Czaplewski et al., Lancet Microbe 2026: https://www.thelancet.com/journals/lanmic/article/PIIS2666-5247(25)00216-2/fulltext · PDF: https://globalamrhub.org/wp-content/uploads/2026/01/Czaplewski-et-al-2026.pdf
