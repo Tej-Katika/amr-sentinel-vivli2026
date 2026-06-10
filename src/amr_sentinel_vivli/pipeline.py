@@ -18,6 +18,7 @@ from .excess_los_sensitivity import (
     exposure_assignment_bounds,
     simulate_rmst_precision,
 )
+from .rd_alignment import gram_panel_alignment
 from .stewardship_gformula import run_stewardship_gformula
 
 
@@ -51,8 +52,10 @@ def run() -> dict:
     # Component 5: empiric-adequacy stewardship g-formula (centerpiece)
     stewardship = run_stewardship_gformula(spidaar)
 
-    # Component 4 (R&D mismatch, Cross-Domain) is gated on the locked Hub snapshot
-    # (config.RD_HUB_SNAPSHOT_DATE) — see rd_alignment.
+    # Component 4 (R&D mismatch, Cross-Domain): verified GRAM burden vs the locked Hub
+    # funding snapshot (config.RD_HUB_SNAPSHOT_DATE); the one unfetched funding split is
+    # propagated as Monte-Carlo uncertainty — see rd_alignment.gram_panel_alignment.
+    rd_alignment = gram_panel_alignment()
 
     return {
         "excess_los": excess,
@@ -64,6 +67,7 @@ def run() -> dict:
         "nowcast": nowcast,
         "frame_contrast": contrast,
         "stewardship": stewardship,
+        "rd_alignment": rd_alignment,
     }
 
 
