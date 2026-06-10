@@ -98,6 +98,36 @@ RD_HUB_SNAPSHOT_2026: dict = {
     "source": "Czaplewski et al., Lancet Microbe 2026 (epub 2026-01-09)",
 }
 
+# Verified GRAM-2019 per-pathogen burden numerator, lifted from Murray et al. appendix 1
+# Table S22 ("Global deaths and DALYs ... by pathogen-drug combination, 2019", the
+# 'Resistance to one or more antibiotics' aggregate row per pathogen). Counts are in
+# THOUSANDS with 95% UI (median, lo, hi). Self-consistency check (enforced by a test):
+# associated-death medians sum to 3,572k = 3.57M and attributable to 928.6k ~= 929k,
+# matching the headline totals; both rank orders match the main text exactly. These are
+# the AMR-burden figures (NOT the Ikuta 2022 all-cause infection deaths). Source:
+# PMC8841637 appendix 1 Table S22. See docs/reference_rd_alignment_2026-06-09.md.
+def _b(ad, dd, adaly, ddaly) -> dict:
+    """Pack one pathogen's (median, lo, hi) tuples: assoc/attrib deaths and DALYs (k)."""
+    return {"assoc_deaths_k": ad, "attrib_deaths_k": dd,
+            "assoc_dalys_k": adaly, "attrib_dalys_k": ddaly}
+
+
+GRAM_BURDEN_2019: dict = {
+    # _b(assoc_deaths, attrib_deaths, assoc_DALYs, attrib_DALYs); each (median, lo, hi), thousands
+    "Escherichia coli": _b((829, 601, 1120), (219, 152, 316),
+                           (28000, 21000, 36900), (7520, 5270, 10500)),
+    "Staphylococcus aureus":    _b((748, 554, 1000), (178, 104, 280),
+                                   (24900, 18600, 32700), (5870, 3550, 9220)),
+    "Klebsiella pneumoniae":    _b((642, 465, 863), (193, 130, 272),
+                                   (27400, 20300, 36100), (8200, 5550, 11400)),
+    "Streptococcus pneumoniae": _b((596, 490, 727), (122, 82.4, 166),
+                                   (29800, 24400, 36700), (6110, 4050, 8330)),
+    "Acinetobacter baumannii":  _b((423, 252, 647), (132, 75.7, 213),
+                                   (11800, 7290, 17800), (3670, 2150, 5760)),
+    "Pseudomonas aeruginosa":   _b((334, 234, 457), (84.6, 53, 127),
+                                   (12000, 8630, 16100), (3050, 1980, 4530)),
+}
+
 
 def cross_cutting_share(funding_by_pathogen: dict, cross_cutting_funding: float) -> dict:
     """Headline magnitude: how much tracked funding is NOT pathogen-specific.
@@ -263,6 +293,104 @@ def monte_carlo_mismatch_ranking(
                 "p_most_underfunded": top_count[p] / int(draws)}
             for p in pathogens
         },
+    }
+
+
+def _sample_funding_split(rng) -> dict:
+    """Sample the unfetched $113M E.coli/A.baumannii/K.pneumoniae split honestly.
+
+    The only verified constraints (Czaplewski figure 3B / appendix 1 p18): the three sum
+    to $113M, are ordered E.coli > A.baumannii > K.pneumoniae, and each is below
+    P.aeruginosa ($87M). S.pneumoniae is absent from the species-specific figure, so its
+    funding is below the smallest shown bar (K.pneumoniae). We sample uniformly over this
+    order-constrained region rather than guess point values; the index is then reported as
+    a distribution. Replace with the appendix exact values when available.
+    """
+    while True:
+        parts = np.sort(rng.random(3))[::-1]
+        e, a, k = (parts / parts.sum()) * 113.0
+        if e < 87.0:  # below P. aeruginosa
+            break
+    return {
+        "Staphylococcus aureus": 142.0,
+        "Pseudomonas aeruginosa": 87.0,
+        "Escherichia coli": float(e),
+        "Acinetobacter baumannii": float(a),
+        "Klebsiella pneumoniae": float(k),
+        "Streptococcus pneumoniae": float(rng.uniform(0.0, k)),  # below smallest shown bar
+    }
+
+
+def gram_panel_alignment(
+    burden_metric: str = "assoc_deaths_k",
+    floor: float = 0.02,
+    draws: int | None = None,
+    seed: int | None = None,
+) -> dict:
+    """Closed-out Component-4 index over the six GRAM leading pathogens.
+
+    Numerator = verified ``GRAM_BURDEN_2019`` (Table S22, with 95% UIs); denominator =
+    the locked ``RD_HUB_SNAPSHOT_2026`` funding, with the unfetched $113M Gram-negative
+    split propagated as uncertainty via :func:`_sample_funding_split`. Each Monte-Carlo
+    draw samples a lognormal burden per pathogen (matched to its UI) AND a feasible funding
+    split, recomputes the floored log2 mismatch, and records the ranking. Returns the
+    cross-cutting headline, the Spearman summary (rank-determined, robust to the split),
+    and per-pathogen log2 medians + CIs + P(most under-funded). Descriptive only (n=6).
+    """
+    if config.RD_HUB_SNAPSHOT_DATE is None:
+        raise ValueError("Lock config.RD_HUB_SNAPSHOT_DATE before running Component 4.")
+    if draws is None:
+        draws = config.MONTE_CARLO_DRAWS
+    if seed is None:
+        seed = config.step_seed(4)
+    rng = np.random.default_rng(seed)
+    z = 1.959963985
+
+    pathogens = list(GRAM_BURDEN_2019)
+    mu, sigma = {}, {}
+    for p in pathogens:
+        med, lo, hi = GRAM_BURDEN_2019[p][burden_metric]
+        mu[p] = np.log(med)
+        sigma[p] = (np.log(hi) - np.log(lo)) / (2 * z)
+
+    log2m = {p: np.empty(int(draws)) for p in pathogens}
+    top_count = {p: 0 for p in pathogens}
+    for d in range(int(draws)):
+        burden = {p: float(rng.lognormal(mu[p], sigma[p])) for p in pathogens}
+        funding = _sample_funding_split(rng)
+        rank = mismatch_index(burden, funding, floor=floor)["ranking"]
+        for r in rank:
+            log2m[r["pathogen"]][d] = r["log2_mismatch"]
+        top_count[rank[0]["pathogen"]] += 1
+
+    # Spearman on the median (point) configuration — funding ranks are fixed by figure 3B,
+    # so the point estimate is robust to the split; the bootstrap CI is wide at n=6.
+    median_burden = {p: GRAM_BURDEN_2019[p][burden_metric][0] for p in pathogens}
+    median_funding = _sample_funding_split(np.random.default_rng(seed))
+    spearman = spearman_burden_funding(median_burden, median_funding, seed=seed)
+
+    per_pathogen = {
+        p: {"log2_mismatch_median": float(np.median(log2m[p])),
+            "log2_mismatch_ci": [float(np.quantile(log2m[p], 0.025)),
+                                 float(np.quantile(log2m[p], 0.975))],
+            "p_most_underfunded": top_count[p] / int(draws)}
+        for p in pathogens
+    }
+    ranked = sorted(per_pathogen, key=lambda p: per_pathogen[p]["log2_mismatch_median"],
+                    reverse=True)
+    return {
+        "burden_metric": burden_metric,
+        "floor": floor,
+        "draws": int(draws),
+        "cross_cutting": cross_cutting_headline(),
+        "spearman": spearman,
+        "per_pathogen": per_pathogen,
+        "underfunded_ranking": ranked,
+        "caption": alignment_caption(),
+        "note": ("Numerator: GRAM-2019 Table S22 (verified, 95% UI). Denominator: Czaplewski "
+                 "et al. 2026; the $113M E.coli/A.baumannii/K.pneumoniae split is unfetched "
+                 "(appendix 1 p18) and propagated as uncertainty, not fabricated. Descriptive, "
+                 "n=6, no fitted line."),
     }
 
 

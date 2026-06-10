@@ -5,12 +5,14 @@ import pytest
 
 from amr_sentinel_vivli import config
 from amr_sentinel_vivli.rd_alignment import (
+    GRAM_BURDEN_2019,
     GRAM_PANEL,
     RD_HUB_SNAPSHOT_2026,
     alignment_caption,
     analyze_alignment,
     cross_cutting_headline,
     cross_cutting_share,
+    gram_panel_alignment,
     mismatch_index,
     monte_carlo_mismatch_ranking,
     spearman_burden_funding,
@@ -118,3 +120,48 @@ def test_cross_cutting_headline_is_flagged_majority():
     assert head["cross_cutting_fraction"] == pytest.approx(1452.0 / 2510.0, rel=1e-6)
     assert head["flagged"] is True
     assert "Czaplewski" in head["source"]
+
+
+def test_gram_burden_self_consistency_with_headline_totals():
+    # Verified Table S22 medians must reconstruct the GRAM headline totals (a strong
+    # check that the per-pathogen rows were transcribed correctly): six leading pathogens
+    # sum to 3.57M associated and ~929k attributable deaths (counts in thousands).
+    assoc = sum(GRAM_BURDEN_2019[p]["assoc_deaths_k"][0] for p in GRAM_BURDEN_2019)
+    attrib = sum(GRAM_BURDEN_2019[p]["attrib_deaths_k"][0] for p in GRAM_BURDEN_2019)
+    assert assoc == pytest.approx(3572, abs=1)        # 3.57 million
+    assert attrib == pytest.approx(929, abs=1)        # 929,000
+    # UIs are ordered lo <= median <= hi for every metric.
+    for rec in GRAM_BURDEN_2019.values():
+        for med, lo, hi in rec.values():
+            assert lo <= med <= hi
+
+
+def test_gram_burden_associated_rank_matches_published_order():
+    order = sorted(GRAM_BURDEN_2019, key=lambda p: GRAM_BURDEN_2019[p]["assoc_deaths_k"][0],
+                   reverse=True)
+    assert order == ["Escherichia coli", "Staphylococcus aureus", "Klebsiella pneumoniae",
+                     "Streptococcus pneumoniae", "Acinetobacter baumannii",
+                     "Pseudomonas aeruginosa"]
+
+
+def test_gram_panel_alignment_robust_ranking_and_determinism():
+    a = gram_panel_alignment(draws=3000, seed=4)
+    b = gram_panel_alignment(draws=3000, seed=4)
+    assert a["per_pathogen"] == b["per_pathogen"]          # reproducible
+    assert a["cross_cutting"]["flagged"] is True
+    # S. pneumoniae and K. pneumoniae carry essentially all the "most under-funded" mass;
+    # S. aureus and P. aeruginosa are over-funded (negative log2 mismatch). This ranking
+    # is invariant to the unfetched funding split — the point of propagating it.
+    top2 = set(a["underfunded_ranking"][:2])
+    assert top2 == {"Streptococcus pneumoniae", "Klebsiella pneumoniae"}
+    p_top = a["per_pathogen"]
+    assert p_top["Streptococcus pneumoniae"]["p_most_underfunded"] \
+        + p_top["Klebsiella pneumoniae"]["p_most_underfunded"] > 0.9
+    assert p_top["Pseudomonas aeruginosa"]["log2_mismatch_median"] < 0
+    assert p_top["Staphylococcus aureus"]["log2_mismatch_median"] < 0
+
+
+def test_gram_panel_alignment_gated_on_snapshot(monkeypatch):
+    monkeypatch.setattr(config, "RD_HUB_SNAPSHOT_DATE", None)
+    with pytest.raises(ValueError, match="RD_HUB_SNAPSHOT_DATE"):
+        gram_panel_alignment(draws=100)
