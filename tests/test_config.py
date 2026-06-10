@@ -20,18 +20,21 @@ def test_catchment_is_spidaar_only():
     assert config.CATCHMENT_COUNTRIES == ("Ghana", "Kenya", "Malawi", "Uganda")
 
 
-def test_rd_hub_window_is_full_collection_span():
-    # Reframed Step 4: 2017-2024 (Hub's actual collection start), not 2020-2024.
-    assert config.RD_HUB_WINDOW == (2017, 2024)
+def test_rd_hub_window_matches_locked_snapshot():
+    # Window is the analysed span of the locked snapshot (Czaplewski et al. 2026,
+    # Hub dashboard extract 2017-2023), not the open-ended collection span.
+    assert config.RD_HUB_WINDOW == (2017, 2023)
 
 
 def test_primary_breakpoint_regime():
     assert config.PRIMARY_BREAKPOINT_REGIME.startswith("EUCAST v15.0")
 
 
-def test_rd_hub_snapshot_must_be_locked_before_use():
-    # Intentionally unset in the scaffold; loaders/Step 4 refuse to run until set.
-    assert config.RD_HUB_SNAPSHOT_DATE is None
+def test_rd_hub_snapshot_is_locked():
+    # Locked to the Czaplewski et al. 2026 Hub-dashboard extract (epub 2026-01-09).
+    # Once set it must never change (retrospective Hub revisions notwithstanding).
+    assert config.RD_HUB_SNAPSHOT_DATE == "2026-01-09"
+    assert "Czaplewski" in config.RD_HUB_SOURCE
 
 
 def test_step_seed_deterministic_and_distinct():

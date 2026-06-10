@@ -51,11 +51,22 @@ MONTE_CARLO_DRAWS = 10_000
 
 # --- Step 4: Public R&D landscape alignment (pre-reg §6-7; reframed) --------
 # Global AMR R&D Hub captures PUBLIC + PHILANTHROPIC funders only; private-sector
-# pipelines are NOT captured. The window is the Hub's full collection span. The
-# data is subject to retrospective revision, so the snapshot date is LOCKED and
+# pipelines are NOT captured. The Hub dashboard is subject to retrospective
+# revision, so the snapshot is LOCKED to a frozen, dated, peer-reviewed extract and
 # cited in every figure caption. We characterize alignment, not "gaps".
-RD_HUB_WINDOW = (2017, 2024)
-RD_HUB_SNAPSHOT_DATE: str | None = None  # set to the ISO pull date, then never change
+#
+# SNAPSHOT LOCKED to Czaplewski et al., "An overview of global public and
+# philanthropic investments into antibacterial therapeutics (2017-23)", Lancet
+# Microbe 2026 (epub 2026-01-09; doi:10.1016/S2666-5247(25)00216-2) — a frozen,
+# peer-reviewed extract of the Hub Dynamic Dashboard. Preferred over a hand-pulled
+# live-dashboard snapshot because it is reproducible and citable. Window is the
+# extract's analysed span (2017-2023). See docs/reference_rd_alignment_2026-06-09.md.
+RD_HUB_WINDOW = (2017, 2023)
+RD_HUB_SNAPSHOT_DATE: str | None = "2026-01-09"  # Czaplewski et al. epub; LOCKED
+RD_HUB_SOURCE = (
+    "Czaplewski et al., Lancet Microbe 2026 (epub 2026-01-09), "
+    "Global AMR R&D Hub Dynamic Dashboard extract 2017-2023"
+)
 RD_HUB_SCOPE = "public + philanthropic only (private-sector R&D not captured)"
 
 # --- Multiple-comparisons policy (pre-reg §8.6) ----------------------------
