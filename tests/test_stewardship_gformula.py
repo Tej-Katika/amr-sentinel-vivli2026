@@ -15,8 +15,10 @@ from amr_sentinel_vivli.stewardship_gformula import (
     INADEQUATE,
     TXADP_ADEQUATE_CODE,
     TXADP_INADEQUATE_CODE,
+    _evalue,
     adequacy_scenario,
     binarize_adequacy,
+    bootstrap_gformula_ci,
     build_calibration_artifact,
     cost_of_bed_days,
     gformula_bed_days,
@@ -196,8 +198,8 @@ def test_monte_carlo_cost_reproducible_and_brackets_point():
 
 
 def test_run_entrypoint_bundles_components():
-    out = run_stewardship_gformula(_balanced_frame())
-    assert set(out) == {"positivity", "pooled", "by_resistance"}
+    out = run_stewardship_gformula(_balanced_frame(), n_boot=50)
+    assert set(out) == {"positivity", "pooled", "by_resistance", "robustness"}
     assert out["pooled"]["avertable_bed_days"] == pytest.approx(10.0)
 
 
@@ -301,3 +303,45 @@ def test_adequacy_scenario_validates_inputs():
     with pytest.raises(ValueError):
         adequacy_scenario(art, n_patients=10, current_adequacy=0.1, target_adequacy=0.5,
                           country="Kenya", currency="euro")
+
+
+# --- Hardening: bootstrap CIs + E-value ------------------------------------------
+
+def test_evalue_known_values():
+    assert _evalue(1.0) == pytest.approx(1.0)
+    assert _evalue(2.0) == pytest.approx(2 + 2**0.5)          # 3.414...
+    assert _evalue(0.5) == pytest.approx(2 + 2**0.5)          # symmetric: 1/0.5 -> 2
+    import math
+    assert math.isnan(_evalue(0.0))
+    assert math.isnan(_evalue(float("nan")))
+
+
+def test_bootstrap_gformula_ci_structure_and_positivity():
+    df = synthetic_cohort(seed=1, per_cell=8)
+    point = gformula_bed_days(df)
+    boot = bootstrap_gformula_ci(df, n_boot=200, seed=5)
+    # stratified-within-cell resampling preserves positivity: every draw is valid
+    assert boot["n_valid"] == boot["n_boot"] == 200
+    for key in ("avertable_bed_days", "avertable_vs_natural", "averted_death_fraction"):
+        c = boot["contrasts"][key]
+        assert c["point"] == pytest.approx(point[key])        # point matches the g-formula
+        assert c["ci_lower"] <= c["ci_upper"]
+    rr = boot["death_risk_ratio"]["point"]
+    assert boot["evalue"]["point"] == pytest.approx(_evalue(rr))
+    assert boot["evalue"]["ci_limit"] >= 1.0
+
+
+def test_bootstrap_gformula_ci_reproducible():
+    df = synthetic_cohort(seed=2, per_cell=8)
+    a = bootstrap_gformula_ci(df, n_boot=150, seed=5)
+    b = bootstrap_gformula_ci(df, n_boot=150, seed=5)
+    assert a["contrasts"] == b["contrasts"]
+    assert a["death_risk_ratio"] == b["death_risk_ratio"]
+
+
+def test_run_stewardship_includes_robustness():
+    df = synthetic_cohort(seed=3, per_cell=8)
+    out = run_stewardship_gformula(df, n_boot=100)
+    assert set(out["robustness"]) == {"pooled", "resistant"}
+    assert out["robustness"]["pooled"]["n_valid"] == 100
+    assert "evalue" in out["robustness"]["resistant"]

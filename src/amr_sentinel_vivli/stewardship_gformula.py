@@ -168,6 +168,16 @@ def gformula_bed_days(
     contrast (competing risks): averting death can raise occupancy.
     """
     w = _build_gformula_frame(df, covariates, tau)
+    return _gformula_from_frame(w, covariates, tau)
+
+
+def _gformula_from_frame(w: pd.DataFrame, covariates: tuple[str, ...], tau: int) -> dict:
+    """Standardized adequacy contrasts from an already-built stratification frame.
+
+    Split out of :func:`gformula_bed_days` so the bootstrap can resample the frame and
+    recompute without rebuilding exit frames each draw. ``w`` carries
+    ``time/exit_type/exited/adequacy`` and the standardization covariates.
+    """
     n_total = int(len(w))
 
     per_stratum: dict = {}
@@ -263,6 +273,114 @@ def gformula_by_resistance(
             out[name] = None
             out[f"{name}_error"] = str(exc)
     return out
+
+
+# --- Hardening: bootstrap uncertainty + E-value for unmeasured confounding ------
+#
+# The g-formula point estimate is a what-if calibration, not a confirmatory effect; two
+# robustness pieces make that honest rather than rhetorical. (1) A STRATIFIED bootstrap
+# resamples within each (confounder-stratum x adequacy) cell, so positivity is preserved by
+# construction (no draw can empty an arm) and the interval reflects the within-cell sampling
+# variance of the restricted means and death CIFs that dominates at these thin cell sizes;
+# the standardization weights P(L) are held at the observed (target) distribution. (2) The
+# E-value (VanderWeele & Ding, Ann Intern Med 2017) reports how strong an unmeasured
+# confounder of adequacy and death would have to be — on the risk-ratio scale, with BOTH the
+# treatment and the outcome — to fully explain away the death-aversion finding, for the point
+# estimate and for the confidence limit nearest the null.
+
+
+def _evalue(rr: float) -> float:
+    """E-value for a risk ratio (VanderWeele & Ding 2017); symmetric for RR<1 via 1/RR."""
+    if not np.isfinite(rr) or rr <= 0:
+        return float("nan")
+    r = rr if rr >= 1.0 else 1.0 / rr
+    if r == 1.0:
+        return 1.0
+    return float(r + np.sqrt(r * (r - 1.0)))
+
+
+def bootstrap_gformula_ci(
+    df: pd.DataFrame,
+    covariates: tuple[str, ...] = DEFAULT_GFORMULA_COVARIATES,
+    tau: int = DEFAULT_TAU,
+    n_boot: int = 2000,
+    alpha: float = 0.05,
+    seed: int | None = None,
+) -> dict:
+    """Stratified-bootstrap percentile CIs for the adequacy g-formula contrasts.
+
+    Resamples patients with replacement WITHIN each (confounder-stratum x adequacy-arm) cell
+    — preserving positivity and the standardization weights — and recomputes the standardized
+    contrasts each draw. Returns the point estimate and ``(1-alpha)`` percentile interval for
+    ``avertable_bed_days``, ``avertable_vs_natural`` and ``averted_death_fraction``, plus the
+    death risk-ratio (set-inadequate vs set-adequate) and its E-value (point and CI-limit
+    nearest the null). Seeded from ``config.step_seed(5)``.
+    """
+    if seed is None:
+        seed = config.step_seed(5)
+    rng = np.random.default_rng(seed)
+
+    w = _build_gformula_frame(df, covariates, tau)
+    point = _gformula_from_frame(w, covariates, tau)
+    cells = [idx.to_numpy() for idx in w.groupby(list(covariates) + ["adequacy"]).groups.values()]
+
+    keys = ("avertable_bed_days", "avertable_vs_natural", "averted_death_fraction")
+    draws: dict = {k: np.empty(n_boot) for k in keys}
+    rr_draws = np.empty(n_boot)
+    n_valid = 0
+    for _b in range(n_boot):
+        picks = np.concatenate([rng.choice(c, size=c.size, replace=True) for c in cells])
+        try:
+            r = _gformula_from_frame(w.loc[picks], covariates, tau)
+        except ValueError:
+            continue
+        for k in keys:
+            draws[k][n_valid] = r[k]
+        da = r["death_cif_set_adequate"]
+        di = r["death_cif_set_inadequate"]
+        rr_draws[n_valid] = (di / da) if da > 0 else np.nan
+        n_valid += 1
+
+    lo, hi = alpha / 2, 1 - alpha / 2
+    contrasts = {
+        k: {
+            "point": float(point[k]),
+            "ci_lower": float(np.quantile(draws[k][:n_valid], lo)),
+            "ci_upper": float(np.quantile(draws[k][:n_valid], hi)),
+        }
+        for k in keys
+    }
+
+    da0, di0 = point["death_cif_set_adequate"], point["death_cif_set_inadequate"]
+    rr_point = (di0 / da0) if da0 > 0 else float("nan")
+    rr_valid = rr_draws[:n_valid]
+    rr_valid = rr_valid[np.isfinite(rr_valid)]
+    rr_ci = ([float(np.quantile(rr_valid, lo)), float(np.quantile(rr_valid, hi))]
+             if rr_valid.size else [float("nan"), float("nan")])
+    # E-value for the CI limit nearest the null (RR=1); if the CI spans 1, that limit is the
+    # null itself and the E-value is 1 (no confounding strength required to explain it away).
+    near_null = min(rr_ci, key=lambda x: abs(np.log(x)) if np.isfinite(x) and x > 0 else np.inf)
+    e_ci = 1.0 if (np.isfinite(rr_ci[0]) and rr_ci[0] <= 1.0 <= rr_ci[1]) else _evalue(near_null)
+
+    return {
+        "n_boot": n_boot,
+        "n_valid": int(n_valid),
+        "alpha": alpha,
+        "contrasts": contrasts,
+        "death_risk_ratio": {
+            "point": rr_point,
+            "ci": rr_ci,
+            "definition": ("CIF_death(set inadequate) / CIF_death(set adequate); "
+                           ">1 => adequacy averts deaths"),
+        },
+        "evalue": {
+            "point": _evalue(rr_point),
+            "ci_limit": float(e_ci),
+            "scale": "risk ratio (VanderWeele & Ding 2017)",
+            "reads_as": ("an unmeasured confounder would need this RR with BOTH adequacy and "
+                         "death to explain away the point estimate / the near-null CI limit"),
+        },
+    }
 
 
 def positivity_diagnostic(
@@ -397,18 +515,26 @@ def run_stewardship_gformula(
     df: pd.DataFrame,
     covariates: tuple[str, ...] = DEFAULT_GFORMULA_COVARIATES,
     tau: int = DEFAULT_TAU,
+    n_boot: int = 2000,
 ) -> dict:
-    """Step-5 entrypoint: positivity diagnostic + pooled and within-resistance g-formula.
+    """Step-5 entrypoint: positivity + g-formula + bootstrap CIs + E-value.
 
     Convenience wrapper that runs the positivity check first (so the contrast is never
-    read without its overlap context) and then the pooled and controlled-direct-effect
-    (by-resistance) adequacy g-formulas on the SPIDAAR patient cohort. EXPLORATORY and
+    read without its overlap context), then the pooled and controlled-direct-effect
+    (by-resistance) adequacy g-formulas, and finally the hardening layer: stratified-
+    bootstrap CIs on the counterfactual contrasts and the death-aversion E-value, for the
+    pooled cohort and the resistant arm (where the effect concentrates). EXPLORATORY and
     Gate-A-gated (see module docstring).
     """
+    resistant_df = df[pd.to_numeric(df["resistant"], errors="coerce") == 1]
     return {
         "positivity": positivity_diagnostic(df, covariates, tau),
         "pooled": gformula_bed_days(df, covariates, tau),
         "by_resistance": gformula_by_resistance(df, covariates, tau),
+        "robustness": {
+            "pooled": bootstrap_gformula_ci(df, covariates, tau, n_boot=n_boot),
+            "resistant": bootstrap_gformula_ci(resistant_df, covariates, tau, n_boot=n_boot),
+        },
     }
 
 
