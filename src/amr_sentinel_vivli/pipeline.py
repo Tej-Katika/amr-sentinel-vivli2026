@@ -12,13 +12,14 @@ from __future__ import annotations
 from . import data_loading
 from .bayesian_excess_los import bayesian_excess_los, prior_sensitivity
 from .bayesian_projection import frame_contrast, run_nowcast
+from .evidence_synthesis import run_evidence_synthesis
 from .excess_los import bootstrap_excess_los_ci, cif_decomposition, standardized_excess_los
 from .excess_los_sensitivity import (
     ascertainment_weighted_excess_los,
     exposure_assignment_bounds,
     simulate_rmst_precision,
 )
-from .rd_alignment import gram_panel_alignment
+from .rd_alignment import catchment_alignment, gram_panel_alignment
 from .stewardship_gformula import run_stewardship_gformula
 
 
@@ -38,6 +39,9 @@ def run() -> dict:
         "weighted": ascertainment_weighted_excess_los(spidaar),
         "bounds": exposure_assignment_bounds(spidaar),
     }
+    # Component 1c (co-primary honesty analysis): Bayesian evidence synthesis of the
+    # adjusted SSA/LMIC resistance->mortality literature, with our cohort placed alongside.
+    evidence = run_evidence_synthesis(spidaar)
 
     # Component 2 (secondary): Bayesian partial-pooled excess bed-days
     bayesian = {
@@ -56,6 +60,9 @@ def run() -> dict:
     # funding snapshot (config.RD_HUB_SNAPSHOT_DATE); the one unfetched funding split is
     # propagated as Monte-Carlo uncertainty — see rd_alignment.gram_panel_alignment.
     rd_alignment = gram_panel_alignment()
+    # Catchment-specific Cross-Domain finding: re-weight the mismatch by the local severe-HAI
+    # pathogen mix (SPIDAAR isolates) — the global ranking made regional with our own data.
+    rd_alignment_catchment = catchment_alignment(spidaar_isolates)
 
     return {
         "excess_los": excess,
@@ -63,11 +70,13 @@ def run() -> dict:
         "cif": cif,
         "power_simulation": power,
         "ascertainment_sensitivity": ascertainment,
+        "evidence_synthesis": evidence,
         "bayesian_excess_los": bayesian,
         "nowcast": nowcast,
         "frame_contrast": contrast,
         "stewardship": stewardship,
         "rd_alignment": rd_alignment,
+        "rd_alignment_catchment": rd_alignment_catchment,
     }
 
 
