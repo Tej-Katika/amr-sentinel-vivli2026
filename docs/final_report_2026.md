@@ -38,9 +38,9 @@ The headline estimand is the difference in restricted-mean time in the *admitted
 
 | Estimate | Excess bed-days | Interval |
 |---|---|---|
-| Crude (Aalen-Johansen Δ-RMST) | **−1.65 d** | 95% bootstrap CI [−4.72, +1.88] |
+| Crude (Aalen-Johansen Δ-RMST) | **−1.65 d** | 95% bootstrap CI [−4.89, +1.90] |
 | Severity-standardised | **−1.87 d** | negative within both severity strata |
-| Bayesian, null-centred prior | **−0.89 d** | 95% HDI [−4.1, +2.7]; P(excess>0)=0.30, P(>1d)=0.14 |
+| Bayesian, null-centred prior | **−0.94 d** | 95% HDI [−4.3, +2.8]; P(excess>0)=0.30, P(>1d)=0.14 |
 
 The point estimate is **negative** — resistant patients leave the admitted state *faster*, not slower. The competing-risks decomposition shows why (cumulative incidence at day 28): resistant patients both discharge more (63.3% vs 57.1%) **and** die more (11.9% vs 4.8%), while susceptible patients linger (still-admitted 38.1% vs 24.8%). Both exits truncate bed-day accrual, so naïve length-of-stay comparisons that ignore death are biased.
 
