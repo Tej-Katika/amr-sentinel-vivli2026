@@ -428,3 +428,128 @@ def alignment_caption() -> str:
         f"window {config.RD_HUB_WINDOW[0]}-{config.RD_HUB_WINDOW[1]}. "
         f"Burden: {GRAM_PANEL['source']}."
     )
+
+
+# --- Catchment-specific alignment (the Cross-Domain finding made local) ----------
+#
+# The global GRAM ranking is dominated by E. coli / S. aureus / S. pneumoniae and answers a
+# global question. The Cross-Domain Award asks what the *catchment* (SSA hospital) data say.
+# We re-weight the burden by the pathogen mix actually observed in the SPIDAAR severe-HAI
+# isolates — the only delivered Register source covering all six GRAM panel species (the ATLAS
+# catchment cell is E. coli / K. pneumoniae only) — and re-run the same mismatch index against
+# the same global funding shares. This is an *isolation-frequency* burden proxy, NOT a mortality
+# burden: it says which pathogens dominate the local resistant-HAI caseload, then asks whether
+# global R&D money follows them. Labelled as such throughout.
+
+# Genus/species substrings that map an organism string onto a GRAM panel pathogen. Acinetobacter
+# is aggregated at genus level onto A. baumannii (the dominant clinical Acinetobacter and the
+# GRAM/ATLAS panel representative); Klebsiella is matched species-specifically to K. pneumoniae.
+_PANEL_ALIASES: dict = {
+    "Escherichia coli": ("escherichia coli",),
+    "Staphylococcus aureus": ("staphylococcus aureus",),
+    "Klebsiella pneumoniae": ("klebsiella pneumoniae",),
+    "Streptococcus pneumoniae": ("streptococcus pneumoniae",),
+    "Acinetobacter baumannii": ("acinetobacter",),  # genus-level aggregation (documented)
+    "Pseudomonas aeruginosa": ("pseudomonas aeruginosa",),
+}
+
+
+def catchment_pathogen_counts(isolates: pd.DataFrame) -> dict:
+    """Count catchment isolates and resistant isolates per GRAM panel pathogen.
+
+    Maps the (possibly polymicrobial) ``organism`` string onto the six panel species via
+    :data:`_PANEL_ALIASES`. Returns ``{species: {"isolates": n, "resistant": n}}`` over the
+    six panel species only (non-panel organisms are out of scope for this index).
+    """
+    org = isolates["organism"].astype(str).str.lower()
+    res = pd.to_numeric(isolates["resistant"], errors="coerce").fillna(0).to_numpy()
+    counts = {}
+    for species, aliases in _PANEL_ALIASES.items():
+        mask = np.zeros(len(isolates), dtype=bool)
+        for a in aliases:
+            mask |= org.str.contains(a, regex=False).to_numpy()
+        counts[species] = {"isolates": int(mask.sum()), "resistant": int(res[mask].sum())}
+    return counts
+
+
+def catchment_alignment(
+    isolates: pd.DataFrame | None = None,
+    counts: dict | None = None,
+    weight: str = "resistant",
+    floor: float = 0.02,
+    draws: int | None = None,
+    seed: int | None = None,
+) -> dict:
+    """Catchment-specific Axis-A mismatch: local pathogen mix vs global funding share.
+
+    Burden share per pathogen is the catchment isolate frequency (``weight="frequency"``) or
+    the resistant-isolate frequency (``weight="resistant"``, the AMR-burden proxy and default),
+    taken from the SPIDAAR isolates. Each Monte-Carlo draw samples the burden shares from a
+    Dirichlet (Jeffreys prior on the observed counts — propagating small-cell uncertainty such
+    as the ~3 S. pneumoniae isolates) and the funding split from :func:`_sample_funding_split`,
+    recomputes the floored log2 mismatch, and records the ranking. Returns per-pathogen log2
+    medians + CIs + P(most under-funded), the Spearman summary, and the point burden shares —
+    mirroring :func:`gram_panel_alignment` so the catchment and global results are comparable.
+    """
+    if config.RD_HUB_SNAPSHOT_DATE is None:
+        raise ValueError("Lock config.RD_HUB_SNAPSHOT_DATE before running Component 4.")
+    if weight not in ("resistant", "frequency"):
+        raise ValueError("weight must be 'resistant' or 'frequency'.")
+    if counts is None:
+        if isolates is None:
+            raise ValueError("Provide either an isolates frame or a precomputed counts dict.")
+        counts = catchment_pathogen_counts(isolates)
+    if draws is None:
+        draws = config.MONTE_CARLO_DRAWS
+    if seed is None:
+        seed = config.step_seed(5)
+    rng = np.random.default_rng(seed)
+
+    key = "resistant" if weight == "resistant" else "isolates"
+    pathogens = list(counts)
+    n = np.array([counts[p][key] for p in pathogens], dtype=float)
+    if n.sum() <= 0:
+        raise ValueError("No catchment isolates in the panel under the chosen weight.")
+    alpha = n + 0.5  # Jeffreys-prior Dirichlet over the observed composition
+
+    log2m = {p: np.empty(int(draws)) for p in pathogens}
+    top_count = {p: 0 for p in pathogens}
+    for d in range(int(draws)):
+        shares = rng.dirichlet(alpha)
+        burden = {p: float(s) for p, s in zip(pathogens, shares, strict=True)}
+        funding = _sample_funding_split(rng)
+        rank = mismatch_index(burden, funding, floor=floor)["ranking"]
+        for r in rank:
+            log2m[r["pathogen"]][d] = r["log2_mismatch"]
+        top_count[rank[0]["pathogen"]] += 1
+
+    point_shares = {p: float(n[i] / n.sum()) for i, p in enumerate(pathogens)}
+    median_funding = _sample_funding_split(np.random.default_rng(seed))
+    spearman = spearman_burden_funding(point_shares, median_funding, seed=seed)
+
+    per_pathogen = {
+        p: {"burden_share": point_shares[p],
+            "log2_mismatch_median": float(np.median(log2m[p])),
+            "log2_mismatch_ci": [float(np.quantile(log2m[p], 0.025)),
+                                 float(np.quantile(log2m[p], 0.975))],
+            "p_most_underfunded": top_count[p] / int(draws)}
+        for p in pathogens
+    }
+    ranked = sorted(per_pathogen, key=lambda p: per_pathogen[p]["log2_mismatch_median"],
+                    reverse=True)
+    return {
+        "weight": weight,
+        "floor": floor,
+        "draws": int(draws),
+        "catchment_counts": counts,
+        "burden_shares": point_shares,
+        "spearman": spearman,
+        "per_pathogen": per_pathogen,
+        "underfunded_ranking": ranked,
+        "source": ("SPIDAAR severe-HAI isolates (catchment); funding "
+                   + RD_HUB_SNAPSHOT_2026["source"]),
+        "note": ("Burden is an isolation-frequency proxy from the catchment HAI isolates (NOT a "
+                 "mortality burden); funding shares are the global Hub snapshot with the $113M "
+                 "Gram-negative split propagated as uncertainty. Descriptive, n=6, no fitted "
+                 "line."),
+    }

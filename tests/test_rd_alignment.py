@@ -1,6 +1,7 @@
 """Tests for the Cross-Domain R&D mismatch index (Component 4). Synthetic inputs only."""
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from amr_sentinel_vivli import config
@@ -10,6 +11,8 @@ from amr_sentinel_vivli.rd_alignment import (
     RD_HUB_SNAPSHOT_2026,
     alignment_caption,
     analyze_alignment,
+    catchment_alignment,
+    catchment_pathogen_counts,
     cross_cutting_headline,
     cross_cutting_share,
     gram_panel_alignment,
@@ -165,3 +168,69 @@ def test_gram_panel_alignment_gated_on_snapshot(monkeypatch):
     monkeypatch.setattr(config, "RD_HUB_SNAPSHOT_DATE", None)
     with pytest.raises(ValueError, match="RD_HUB_SNAPSHOT_DATE"):
         gram_panel_alignment(draws=100)
+
+
+# --- Catchment-specific alignment -------------------------------------------------
+
+def _iso(organism, resistant):
+    return {"organism": organism, "resistant": resistant}
+
+
+def test_catchment_pathogen_counts_mapping():
+    iso = pd.DataFrame([
+        _iso("Escherichia coli", 1), _iso("escherichia coli", 0),
+        _iso("Klebsiella pneumoniae", 1), _iso("Klebsiella oxytoca", 1),   # oxytoca NOT K.pneu
+        _iso("Acinetobacter spp", 1), _iso("Acinetobacter baumannii", 1),  # both -> A.baumannii
+        _iso("Staphylococcus aureus", 0),
+        _iso("Streptococcus pneumoniae", 1),
+        _iso("Pseudomonas aeruginosa", 1),
+    ])
+    c = catchment_pathogen_counts(iso)
+    assert c["Escherichia coli"] == {"isolates": 2, "resistant": 1}
+    assert c["Klebsiella pneumoniae"] == {"isolates": 1, "resistant": 1}   # oxytoca excluded
+    assert c["Acinetobacter baumannii"] == {"isolates": 2, "resistant": 2}  # genus-aggregated
+    assert c["Staphylococcus aureus"] == {"isolates": 1, "resistant": 0}
+    assert c["Streptococcus pneumoniae"]["isolates"] == 1
+
+
+def test_catchment_alignment_shares_and_ranking():
+    # High-burden, zero-named-funding pathogen (K. pneumoniae) should top the ranking;
+    # a low-burden, high-funding one (S. aureus) should sit at the bottom.
+    counts = {
+        "Escherichia coli": {"isolates": 50, "resistant": 40},
+        "Staphylococcus aureus": {"isolates": 14, "resistant": 11},
+        "Klebsiella pneumoniae": {"isolates": 39, "resistant": 34},
+        "Streptococcus pneumoniae": {"isolates": 3, "resistant": 2},
+        "Acinetobacter baumannii": {"isolates": 22, "resistant": 16},
+        "Pseudomonas aeruginosa": {"isolates": 16, "resistant": 10},
+    }
+    out = catchment_alignment(counts=counts, weight="resistant", draws=3000, seed=5)
+    shares = out["burden_shares"]
+    assert sum(shares.values()) == pytest.approx(1.0)
+    # P(most under-funded) is a proper distribution over the panel
+    assert sum(p["p_most_underfunded"] for p in out["per_pathogen"].values()) == pytest.approx(1.0)
+    # ranking sorted by descending median log2 mismatch
+    meds = [out["per_pathogen"][p]["log2_mismatch_median"] for p in out["underfunded_ranking"]]
+    assert meds == sorted(meds, reverse=True)
+    # the highest-funded species is over-funded relative to its small catchment burden
+    assert out["per_pathogen"]["Staphylococcus aureus"]["log2_mismatch_median"] < 0
+    # E. coli / K. pneumoniae (the dominant catchment Gram-negatives) are under-funded
+    assert out["per_pathogen"]["Klebsiella pneumoniae"]["log2_mismatch_median"] > 0
+    assert out["per_pathogen"]["Escherichia coli"]["log2_mismatch_median"] > 0
+
+
+def test_catchment_alignment_reproducible_and_weight_validated():
+    counts = {p: {"isolates": 5 + 3 * i, "resistant": 4 + 2 * i}
+              for i, p in enumerate(GRAM_BURDEN_2019)}
+    a = catchment_alignment(counts=counts, draws=1000, seed=5)
+    b = catchment_alignment(counts=counts, draws=1000, seed=5)
+    assert a["per_pathogen"] == b["per_pathogen"]
+    with pytest.raises(ValueError, match="weight"):
+        catchment_alignment(counts=counts, weight="bogus", draws=10)
+
+
+def test_catchment_alignment_gated_on_snapshot(monkeypatch):
+    counts = {p: {"isolates": 5, "resistant": 4} for p in GRAM_BURDEN_2019}
+    monkeypatch.setattr(config, "RD_HUB_SNAPSHOT_DATE", None)
+    with pytest.raises(ValueError, match="RD_HUB_SNAPSHOT_DATE"):
+        catchment_alignment(counts=counts, draws=100)
