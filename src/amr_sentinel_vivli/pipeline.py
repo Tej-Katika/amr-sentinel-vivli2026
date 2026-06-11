@@ -19,6 +19,7 @@ from .excess_los_sensitivity import (
     exposure_assignment_bounds,
     simulate_rmst_precision,
 )
+from .isolate_mechanisms import run_isolate_mechanisms
 from .rd_alignment import catchment_alignment, gram_panel_alignment
 from .stewardship_gformula import run_stewardship_gformula
 
@@ -42,6 +43,8 @@ def run() -> dict:
     # Component 1c (co-primary honesty analysis): Bayesian evidence synthesis of the
     # adjusted SSA/LMIC resistance->mortality literature, with our cohort placed alongside.
     evidence = run_evidence_synthesis(spidaar)
+    # Component 1d: isolate-level mechanism breakdown + patient<->isolate relinkage projection.
+    mechanisms = run_isolate_mechanisms(spidaar_isolates)
 
     # Component 2 (secondary): Bayesian partial-pooled excess bed-days
     bayesian = {
@@ -71,6 +74,7 @@ def run() -> dict:
         "power_simulation": power,
         "ascertainment_sensitivity": ascertainment,
         "evidence_synthesis": evidence,
+        "isolate_mechanisms": mechanisms,
         "bayesian_excess_los": bayesian,
         "nowcast": nowcast,
         "frame_contrast": contrast,
