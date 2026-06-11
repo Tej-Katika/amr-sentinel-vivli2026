@@ -27,6 +27,9 @@ dist/
 .ipynb_checkpoints/
 uv.lock.tmp
 
+# Challenge admin docs — keep local, not in version control
+EOI.pdf
+
 # Environment / secrets
 .env
 *.key
