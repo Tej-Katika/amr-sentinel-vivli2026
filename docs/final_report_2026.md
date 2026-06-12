@@ -4,7 +4,7 @@
 
 **Vivli 2026 AMR Surveillance Open Data Re-Use Data Challenge — Final Submission (DRAFT)**
 Tejashwar Reddy Katika (Independent Researcher, University of North Texas; Lead) · Akhilesh Reddy Katika (MS Data Science, Flinders University)
-Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0) · **Cross-Domain Award eligible**
+Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0, 135 tests) · **Cross-Domain Award eligible**
 
 > **Draft status.** Figures here are from the development run on the delivered files; the confirmatory run is executed in the Vivli secure environment. The R&D-Hub funding snapshot, the GRAM per-pathogen burden, and the SPIDAAR codebook gates (exposure and adequacy coding) are now resolved and the Cross-Domain index is computed; the only un-fetched Component-4 input is the $113M split among three Gram-negatives (appendix-locked), which is propagated as uncertainty rather than guessed and does not affect the ranking. Every deviation from the pre-registration is logged in `docs/deviation_log.md` and a supplementary OSF addendum.
 >
@@ -76,7 +76,7 @@ This ships as a re-runnable **Streamlit what-if tool**: a catchment-region stewa
 
 ### 3.4 Burden vs R&D investment (Component 4 — Cross-Domain)
 
-The Cross-Domain index aligns global GRAM burden share with Global AMR R&D Hub public+philanthropic funding share per pathogen (log2 mismatch + Spearman ρ; n=5–6 pathogens, descriptive only, no fitted line), reporting the **non-pathogen-specific (cross-cutting) funding magnitude first** and bounding sparsely-funded pathogens with a pre-specified floor. The funding denominator is now locked to a frozen, peer-reviewed extract of the Hub Dynamic Dashboard (Czaplewski et al., *Lancet Microbe* 2026, public+philanthropic, 2017–2023), preferred over a hand-pulled live snapshot for reproducibility.
+**This component meets the Global AMR R&D Hub Cross-Domain Award brief directly: it joins the Hub funding dataset to two Vivli AMR Register datasets (SPIDAAR and ATLAS).** The Cross-Domain index aligns global GRAM burden share with Hub public+philanthropic funding share per pathogen (log2 mismatch + Spearman ρ; n=5–6 pathogens, descriptive only, no fitted line), reporting the **non-pathogen-specific (cross-cutting) funding magnitude first** and bounding sparsely-funded pathogens with a pre-specified floor. The funding denominator is locked to a frozen, peer-reviewed extract of the Hub Dynamic Dashboard (Czaplewski et al., *Lancet Microbe* 2026; 2017–2023), preferred over a live snapshot for reproducibility.
 
 **Cross-cutting first.** Of US$2.51 billion in public+philanthropic antibacterial-therapeutics R&D (130 funders, 2017–2023), only **$1.06 billion — 42% — is pathogen-specific**; the majority (58%) is cross-cutting, so every per-pathogen claim is appropriately widened. Within the pathogen-specific minority, spend is dominated by *M. tuberculosis* ($474M, ~45% of it) and by Gram-positive/niche targets (*S. aureus* $142M, *C. difficile* $141M, *N. gonorrhoeae* $101M, *P. aeruginosa* $87M).
 
