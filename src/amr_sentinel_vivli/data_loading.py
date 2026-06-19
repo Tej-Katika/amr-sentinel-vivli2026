@@ -414,15 +414,127 @@ def load_smart() -> pd.DataFrame:
     raise NotImplementedError(_NOT_YET)
 
 
-def load_rd_hub_snapshot() -> pd.DataFrame:
-    """Load the locked Global AMR R&D Hub snapshot (public + philanthropic only).
+# --- Global AMR R&D Hub investment export -----------------------------------
+# A dated export pulled by hand from the Hub Dynamic Dashboard / Investment Gallery
+# (globalamrhub.org/dynamic-dashboard/) inside the secure environment and saved to
+# ``data/rd_hub/rd_hub_investment_<RD_HUB_SNAPSHOT_DATE>.csv``. The Hub User Guide
+# (dashboard *Library* > Data Sources) sanctions "extract and use"; we freeze a dated
+# copy because the live dashboard is retrospectively revised (pre-reg §6/§7). The
+# published Czaplewski et al. extract (``rd_alignment.RD_HUB_SNAPSHOT_2026``) is kept
+# as the reconciliation cross-check, NOT replaced — see
+# ``rd_alignment.reconcile_hub_snapshot``.
+#
+# Expected tidy schema (one row per pathogen x year x funder slice). Column names are
+# matched case-insensitively and stripped; only the four required columns must exist.
+RD_HUB_EXPORT_COLUMNS = ("pathogen", "year", "funder_type", "investment_usd")
+_RD_HUB_OPTIONAL_COLUMNS = ("sector", "funder")
 
-    Requires ``config.RD_HUB_SNAPSHOT_DATE`` to be set; the window is
-    ``config.RD_HUB_WINDOW`` (2017-2024). Private-sector R&D is out of scope.
+# Funder types kept under config.RD_HUB_SCOPE ("public + philanthropic only"). Anything
+# else (private, public-private partnership, unspecified) is dropped — documented, not
+# silently mixed in.
+_RD_HUB_KEPT_FUNDER_TYPES = frozenset({"public", "philanthropic"})
+
+# Pathogen labels that denote NON-species-specific (cross-cutting) investment. Folded
+# into the cross-cutting bucket rather than any single pathogen.
+_RD_HUB_CROSS_CUTTING_LABELS = frozenset({
+    "cross-cutting", "cross cutting", "crosscutting", "multiple", "pathogen-agnostic",
+    "pathogen agnostic", "not pathogen specific", "not pathogen-specific", "unspecified",
+    "none", "n/a", "na", "", "various", "broad-spectrum", "broad spectrum",
+})
+
+
+def _build_rd_hub_frame(raw: pd.DataFrame) -> pd.DataFrame:
+    """Pure raw->tidy transform for a Hub investment export (unit-tested on synthetic rows).
+
+    Normalises column names, restricts to the in-scope funder types and (if present) the
+    human sector, clips to ``config.RD_HUB_WINDOW``, coerces the amount to float, drops
+    non-positive/unparseable amounts, and flags cross-cutting rows. Returns a tidy frame
+    with columns ``pathogen, year, funder_type, investment_usd, is_cross_cutting`` (+
+    ``funder`` if the export carried it). No side effects; never touches disk.
+    """
+    rename = {c: c.strip().lower().replace(" ", "_") for c in raw.columns}
+    frame = raw.rename(columns=rename)
+
+    missing = [c for c in RD_HUB_EXPORT_COLUMNS if c not in frame.columns]
+    if missing:
+        raise ValueError(
+            f"Hub export is missing required column(s) {missing}; expected at least "
+            f"{list(RD_HUB_EXPORT_COLUMNS)} (got {list(frame.columns)})."
+        )
+
+    keep = list(RD_HUB_EXPORT_COLUMNS) + [
+        c for c in _RD_HUB_OPTIONAL_COLUMNS if c in frame.columns
+    ]
+    frame = frame[keep].copy()
+
+    frame["pathogen"] = frame["pathogen"].astype("string").str.strip()
+    frame["funder_type"] = frame["funder_type"].astype("string").str.strip().str.lower()
+    frame["year"] = pd.to_numeric(frame["year"], errors="coerce").astype("Int64")
+    frame["investment_usd"] = pd.to_numeric(frame["investment_usd"], errors="coerce")
+
+    # Scope filters (each documented in config / deviation log).
+    frame = frame[frame["funder_type"].isin(_RD_HUB_KEPT_FUNDER_TYPES)]
+    if "sector" in frame.columns:
+        frame = frame[frame["sector"].astype("string").str.strip().str.lower() == "human"]
+    lo, hi = config.RD_HUB_WINDOW
+    frame = frame[(frame["year"] >= lo) & (frame["year"] <= hi)]
+
+    # Drop rows that carry no usable amount.
+    frame = frame[frame["investment_usd"].notna() & (frame["investment_usd"] > 0)]
+
+    label = frame["pathogen"].fillna("").str.lower()
+    frame["is_cross_cutting"] = label.isin(_RD_HUB_CROSS_CUTTING_LABELS)
+
+    frame["year"] = frame["year"].astype(int)
+    frame["investment_usd"] = frame["investment_usd"].astype(float)
+    return frame.reset_index(drop=True)
+
+
+def _validate_rd_hub(frame: pd.DataFrame) -> None:
+    """Guard the loaded Hub frame: non-empty, in-window, in-scope, positive amounts."""
+    if frame.empty:
+        raise ValueError(
+            "Hub export is empty after applying the scope/window filters. Check that the "
+            "export covers public+philanthropic funders within "
+            f"{config.RD_HUB_WINDOW} (human sector)."
+        )
+    lo, hi = config.RD_HUB_WINDOW
+    if not frame["year"].between(lo, hi).all():
+        raise ValueError(f"Hub export has rows outside the locked window {config.RD_HUB_WINDOW}.")
+    if not frame["funder_type"].isin(_RD_HUB_KEPT_FUNDER_TYPES).all():
+        raise ValueError("Hub export retained an out-of-scope funder type.")
+    if not (frame["investment_usd"] > 0).all():
+        raise ValueError("Hub export retained a non-positive investment amount.")
+
+
+def load_rd_hub_snapshot() -> pd.DataFrame:
+    """Load the dated Global AMR R&D Hub investment export (public + philanthropic only).
+
+    Reads ``data/rd_hub/rd_hub_investment_<RD_HUB_SNAPSHOT_DATE>.csv`` — a dated export
+    hand-pulled from the Hub Dynamic Dashboard in the secure environment (see the module
+    note above for provenance). Requires ``config.RD_HUB_SNAPSHOT_DATE`` to be set; the
+    window is ``config.RD_HUB_WINDOW`` and private-sector R&D is out of scope.
+
+    Returns a tidy frame (one row per pathogen x year x funder slice). Collapse it into the
+    index denominator with :func:`rd_alignment.snapshot_from_hub_export`, and cross-check it
+    against the published Czaplewski snapshot with
+    :func:`rd_alignment.reconcile_hub_snapshot`.
     """
     if config.RD_HUB_SNAPSHOT_DATE is None:
         raise ValueError(
             "config.RD_HUB_SNAPSHOT_DATE is not set. Lock the snapshot date before "
             "loading R&D Hub data (pre-reg §6/§7; Hub data is retrospectively revised)."
         )
-    raise NotImplementedError(_NOT_YET)
+    path = config.DATA_DIR / "rd_hub" / f"rd_hub_investment_{config.RD_HUB_SNAPSHOT_DATE}.csv"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Hub investment export not found at {path}. Pull a dated export from the Hub "
+            "Dynamic Dashboard (filters: public+philanthropic funders, "
+            f"{config.RD_HUB_WINDOW[0]}-{config.RD_HUB_WINDOW[1]}, human sector) inside the "
+            "secure environment and save it there. Columns expected: "
+            f"{list(RD_HUB_EXPORT_COLUMNS)} (+ optional {list(_RD_HUB_OPTIONAL_COLUMNS)})."
+        )
+    raw = pd.read_csv(path)
+    frame = _build_rd_hub_frame(raw)
+    _validate_rd_hub(frame)
+    return frame

@@ -166,6 +166,82 @@ def cross_cutting_headline(snapshot: dict | None = None) -> dict:
     return head
 
 
+def snapshot_from_hub_export(frame, source: str | None = None) -> dict:
+    """Collapse a tidy Hub investment export into a ``RD_HUB_SNAPSHOT_2026``-shaped dict.
+
+    ``frame`` is the output of :func:`data_loading.load_rd_hub_snapshot` (columns
+    ``pathogen, year, funder_type, investment_usd, is_cross_cutting`` [+ ``funder``]). The
+    returned dict is a drop-in denominator for :func:`cross_cutting_headline` and the
+    per-pathogen index: species-specific rows are summed per pathogen (US$ millions),
+    cross-cutting rows go to the total only, and any GRAM-panel species absent from the
+    export is reported under ``unfunded_gram_panel_species``.
+
+    This sources the index denominator from a direct dated Hub export rather than the
+    published Czaplewski transcription; keep the latter as the reconciliation cross-check
+    (:func:`reconcile_hub_snapshot`).
+    """
+    total_usd = float(frame["investment_usd"].sum())
+    specific = frame[~frame["is_cross_cutting"]]
+    per_pathogen = (
+        specific.groupby("pathogen")["investment_usd"].sum().div(1e6).round(6)
+    )
+    named = {str(k): float(v) for k, v in per_pathogen.items()}
+    species_specific_usd = float(specific["investment_usd"].sum())
+
+    panel = set(GRAM_BURDEN_2019)
+    unfunded = sorted(panel - {p for p, v in named.items() if v > 0})
+    n_funders = int(frame["funder"].nunique()) if "funder" in frame.columns else None
+
+    return {
+        "total_funding_musd": round(total_usd / 1e6, 6),
+        "n_funders": n_funders,
+        "species_specific_total_musd": round(species_specific_usd / 1e6, 6),
+        "named_species_funding_musd": named,
+        # The export carries every species-specific pathogen explicitly, so there is no
+        # residual "other" bucket (kept for shape-compatibility with the published snapshot).
+        "other_species_specific_musd": 0.0,
+        "unfunded_gram_panel_species": unfunded,
+        "source": source or (
+            f"Global AMR R&D Hub Dynamic Dashboard export {config.RD_HUB_SNAPSHOT_DATE}"
+        ),
+    }
+
+
+def reconcile_hub_snapshot(
+    export_snapshot: dict,
+    published: dict | None = None,
+    rel_tol: float = 0.15,
+) -> dict:
+    """Cross-check a Hub-export snapshot against the published Czaplewski extract.
+
+    Compares the two headline magnitudes (total and species-specific funding) and returns a
+    per-field record (export value, published value, relative difference, within-tolerance
+    flag). The Hub dashboard is retrospectively revised, so some drift from the frozen
+    Czaplewski extract is EXPECTED — this surfaces its size rather than asserting equality.
+    ``ok`` is True when every compared field is within ``rel_tol``.
+    """
+    ref = RD_HUB_SNAPSHOT_2026 if published is None else published
+    fields = ("total_funding_musd", "species_specific_total_musd")
+    rows = {}
+    for f in fields:
+        exp = float(export_snapshot[f])
+        pub = float(ref[f])
+        rel = abs(exp - pub) / pub if pub else float("nan")
+        rows[f] = {
+            "export": exp,
+            "published": pub,
+            "rel_diff": rel,
+            "within_tol": bool(rel <= rel_tol),
+        }
+    return {
+        "fields": rows,
+        "rel_tol": rel_tol,
+        "ok": all(r["within_tol"] for r in rows.values()),
+        "export_source": export_snapshot.get("source"),
+        "published_source": ref.get("source"),
+    }
+
+
 def mismatch_index(
     burden_by_pathogen: dict,
     funding_by_pathogen: dict,

@@ -12,7 +12,15 @@ At analysis time, the following live here (inside the Vivli secure environment):
   there is no `smart/`.
 - `rd_hub/` — locked Global AMR R&D Hub snapshot (public + philanthropic only),
   for the Cross-Domain R&D mismatch (Component 4). Record the snapshot date in
-  `config.RD_HUB_SNAPSHOT_DATE` and never change it.
+  `config.RD_HUB_SNAPSHOT_DATE` and never change it. `load_rd_hub_snapshot()` reads
+  a dated export `rd_hub/rd_hub_investment_<RD_HUB_SNAPSHOT_DATE>.csv` — pull it by
+  hand from the Hub Dynamic Dashboard / Investment Gallery
+  (globalamrhub.org/dynamic-dashboard/; filters: public+philanthropic funders,
+  2017–2023, human sector) inside the secure environment. Tidy schema, one row per
+  pathogen×year×funder slice: `pathogen, year, funder_type, investment_usd`
+  (+ optional `sector, funder`); cross-cutting rows use a pathogen label like
+  `Cross-cutting`. The published Czaplewski et al. extract stays the reconciliation
+  cross-check (`rd_alignment.reconcile_hub_snapshot`), not a replacement.
 
 Country bed-day unit costs (WHO-CHOICE) and GRAM burden figures are external,
 published constants documented/cited in `docs/reference_verified_2026-06-06.md` and

@@ -12,9 +12,12 @@ import pytest
 from amr_sentinel_vivli import config
 from amr_sentinel_vivli.data_loading import (
     MORTALITY_HORIZON_DAYS,
+    RD_HUB_EXPORT_COLUMNS,
     SPIDAAR_COLUMNS,
+    _build_rd_hub_frame,
     _build_spidaar_analysis_frame,
     _restrict_to_catchment,
+    _validate_rd_hub,
     _validate_spidaar,
 )
 
@@ -127,3 +130,73 @@ def test_validate_rejects_out_of_catchment():
     bad.loc[0, "country"] = "Nigeria"
     with pytest.raises(ValueError, match="catchment"):
         _validate_spidaar(bad)
+
+
+# --- Global AMR R&D Hub investment export -----------------------------------
+
+def _hub_raw(rows):
+    """Build a raw Hub-export-shaped frame (extra/cased columns mirror a real export)."""
+    cols = ["Pathogen", "Year", "Funder_Type", "Investment_USD", "Sector", "Funder"]
+    return pd.DataFrame(rows)[cols]
+
+
+def _hub_synthetic():
+    lo, hi = config.RD_HUB_WINDOW
+    return _hub_raw([
+        # in-scope species-specific rows (two funders, two years for E. coli)
+        dict(Pathogen="Escherichia coli", Year=lo, Funder_Type="Public",
+             Investment_USD=10e6, Sector="Human", Funder="A"),
+        dict(Pathogen="Escherichia coli", Year=hi, Funder_Type="Philanthropic",
+             Investment_USD=5e6, Sector="Human", Funder="B"),
+        dict(Pathogen="Klebsiella pneumoniae", Year=hi, Funder_Type="Public",
+             Investment_USD=4e6, Sector="Human", Funder="A"),
+        # cross-cutting row -> total only, not any pathogen
+        dict(Pathogen="Cross-cutting", Year=hi, Funder_Type="Public",
+             Investment_USD=20e6, Sector="Human", Funder="C"),
+        # out-of-scope funder type -> dropped
+        dict(Pathogen="Escherichia coli", Year=hi, Funder_Type="Private",
+             Investment_USD=99e6, Sector="Human", Funder="Z"),
+        # out-of-window year -> dropped
+        dict(Pathogen="Escherichia coli", Year=lo - 1, Funder_Type="Public",
+             Investment_USD=99e6, Sector="Human", Funder="A"),
+        # non-human sector -> dropped
+        dict(Pathogen="Klebsiella pneumoniae", Year=hi, Funder_Type="Public",
+             Investment_USD=99e6, Sector="Animal", Funder="A"),
+        # non-positive / unparseable amount -> dropped
+        dict(Pathogen="Klebsiella pneumoniae", Year=hi, Funder_Type="Public",
+             Investment_USD=0.0, Sector="Human", Funder="A"),
+    ])
+
+
+def test_hub_export_columns_normalised_and_scope_filtered():
+    frame = _build_rd_hub_frame(_hub_synthetic())
+    # only the 4 in-scope rows survive (2 E.coli + 1 K.pneu + 1 cross-cutting)
+    assert len(frame) == 4
+    assert set(frame["funder_type"]) <= {"public", "philanthropic"}
+    lo, hi = config.RD_HUB_WINDOW
+    assert frame["year"].between(lo, hi).all()
+    assert (frame["investment_usd"] > 0).all()
+    assert set(RD_HUB_EXPORT_COLUMNS) <= set(frame.columns)
+
+
+def test_hub_export_flags_cross_cutting():
+    frame = _build_rd_hub_frame(_hub_synthetic())
+    cc = frame[frame["is_cross_cutting"]]
+    assert len(cc) == 1
+    assert float(cc["investment_usd"].iloc[0]) == 20e6
+    assert not frame[~frame["is_cross_cutting"]]["pathogen"].isin(["Cross-cutting"]).any()
+
+
+def test_hub_export_missing_required_column_raises():
+    bad = _hub_synthetic().drop(columns=["Investment_USD"])
+    with pytest.raises(ValueError, match="missing required column"):
+        _build_rd_hub_frame(bad)
+
+
+def test_validate_rd_hub_rejects_empty_after_filter():
+    only_private = _hub_raw([
+        dict(Pathogen="Escherichia coli", Year=config.RD_HUB_WINDOW[1],
+             Funder_Type="Private", Investment_USD=10e6, Sector="Human", Funder="Z"),
+    ])
+    with pytest.raises(ValueError, match="empty"):
+        _validate_rd_hub(_build_rd_hub_frame(only_private))

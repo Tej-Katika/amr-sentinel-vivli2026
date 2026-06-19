@@ -18,6 +18,8 @@ from amr_sentinel_vivli.rd_alignment import (
     gram_panel_alignment,
     mismatch_index,
     monte_carlo_mismatch_ranking,
+    reconcile_hub_snapshot,
+    snapshot_from_hub_export,
     spearman_burden_funding,
 )
 
@@ -123,6 +125,62 @@ def test_cross_cutting_headline_is_flagged_majority():
     assert head["cross_cutting_fraction"] == pytest.approx(1452.0 / 2510.0, rel=1e-6)
     assert head["flagged"] is True
     assert "Czaplewski" in head["source"]
+
+
+def _hub_export_frame():
+    """Tidy frame shaped like data_loading.load_rd_hub_snapshot output (synthetic)."""
+    return pd.DataFrame([
+        # species-specific: E.coli 15M (two slices), K.pneu 4M
+        dict(pathogen="Escherichia coli", year=2018, funder_type="public",
+             investment_usd=10e6, is_cross_cutting=False, funder="A"),
+        dict(pathogen="Escherichia coli", year=2020, funder_type="philanthropic",
+             investment_usd=5e6, is_cross_cutting=False, funder="B"),
+        dict(pathogen="Klebsiella pneumoniae", year=2021, funder_type="public",
+             investment_usd=4e6, is_cross_cutting=False, funder="A"),
+        # cross-cutting: 20M -> total only
+        dict(pathogen="Cross-cutting", year=2021, funder_type="public",
+             investment_usd=20e6, is_cross_cutting=True, funder="C"),
+    ])
+
+
+def test_snapshot_from_hub_export_shape_and_sums():
+    snap = snapshot_from_hub_export(_hub_export_frame())
+    assert snap["total_funding_musd"] == pytest.approx(39.0)        # (15+4+20)
+    assert snap["species_specific_total_musd"] == pytest.approx(19.0)  # 15+4
+    assert snap["named_species_funding_musd"]["Escherichia coli"] == pytest.approx(15.0)
+    assert snap["named_species_funding_musd"]["Klebsiella pneumoniae"] == pytest.approx(4.0)
+    # cross-cutting label is never folded onto a pathogen
+    assert "Cross-cutting" not in snap["named_species_funding_musd"]
+    assert snap["n_funders"] == 3
+    # the export carries every species-specific pathogen, so no residual "other"
+    assert snap["other_species_specific_musd"] == 0.0
+    # GRAM-panel species absent from the export are reported as unfunded
+    assert "Staphylococcus aureus" in snap["unfunded_gram_panel_species"]
+    assert "Escherichia coli" not in snap["unfunded_gram_panel_species"]
+
+
+def test_snapshot_from_hub_export_drops_into_headline():
+    # The export-derived snapshot is a drop-in for cross_cutting_headline.
+    snap = snapshot_from_hub_export(_hub_export_frame())
+    head = cross_cutting_headline(snapshot=snap)
+    assert head["total_funding"] == pytest.approx(39.0)
+    assert head["pathogen_specific_funding"] == pytest.approx(19.0)
+    assert head["cross_cutting_fraction"] == pytest.approx(20.0 / 39.0)
+    assert head["flagged"] is True
+
+
+def test_reconcile_hub_snapshot_flags_drift():
+    # Identical-to-published reconciles ok; a 50% inflated total breaches the 15% tolerance.
+    ok = reconcile_hub_snapshot(dict(RD_HUB_SNAPSHOT_2026))
+    assert ok["ok"] is True
+    assert ok["fields"]["total_funding_musd"]["rel_diff"] == pytest.approx(0.0)
+
+    drifted = dict(RD_HUB_SNAPSHOT_2026)
+    drifted["total_funding_musd"] = RD_HUB_SNAPSHOT_2026["total_funding_musd"] * 1.5
+    rec = reconcile_hub_snapshot(drifted)
+    assert rec["ok"] is False
+    assert rec["fields"]["total_funding_musd"]["within_tol"] is False
+    assert rec["fields"]["total_funding_musd"]["rel_diff"] == pytest.approx(0.5)
 
 
 def test_gram_burden_self_consistency_with_headline_totals():
