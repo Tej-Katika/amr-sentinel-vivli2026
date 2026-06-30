@@ -2,9 +2,9 @@
 
 ### A competing-risks reframing of what antibiotic resistance does to patients — and where the leverage to act actually lies
 
-**Vivli 2026 AMR Surveillance Open Data Re-Use Data Challenge — Final Submission (DRAFT)**
+**Vivli 2026 AMR Surveillance Open Data Re-Use Data Challenge — Final Submission**
 Tejashwar Reddy Katika (Independent Researcher, University of North Texas; Lead) · Akhilesh Reddy Katika (MS Data Science, Flinders University)
-Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0, 135 tests) · **Cross-Domain Award eligible**
+Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0, 145 tests) · **Cross-Domain Award eligible**
 
 > **Draft status.** Figures here are from the development run on the delivered files; the confirmatory run is executed in the Vivli secure environment. The R&D-Hub funding snapshot, the GRAM per-pathogen burden, and the SPIDAAR codebook gates (exposure and adequacy coding) are now resolved and the Cross-Domain index is computed; the only un-fetched Component-4 input is the $113M split among three Gram-negatives (appendix-locked), which is propagated as uncertainty rather than guessed and does not affect the ranking. Every deviation from the pre-registration is logged in `docs/deviation_log.md` and a supplementary OSF addendum.
 >
@@ -28,7 +28,7 @@ So we move the headline onto **resistance-attributable excess bed-days** estimat
 
 **SPIDAAR** (Ghana, Kenya, Malawi, Uganda): 336 hospitalised patients with healthcare-associated infections; length-of-stay, in-hospital death, severity, ward, empiric-therapy adequacy, and a patient-level resistance summary; plus 244 isolates with per-mechanism resistance. **ATLAS**: 1.0 M isolates, of which 1,519 fall in the catchment; the analysable cell is **Enterobacterales (E. coli + K. pneumoniae) × ceftazidime** (665 isolates; ceftriaxone interpretation is blank in the catchment, and no catchment data exist after 2023). **Global AMR R&D Hub**: public + philanthropic funding, frozen at a dated snapshot.
 
-The exposure is pinned to a defensible contrast — **resistant = `amrp==2`; susceptible = `amrp==0` only** (untested/unascertained excluded). All estimators are competing-risks-aware and reproducible (master seed `20260526`); because the secure environment lacks specialised survival/Bayesian libraries, they are implemented directly in NumPy/pandas and unit-tested on synthetic data (135 tests). Full specification: `docs/analysis_plan_2026.md`.
+The exposure is pinned to a defensible contrast — **resistant = `amrp==2`; susceptible = `amrp==0` only** (untested/unascertained excluded). All estimators are competing-risks-aware and reproducible (master seed `20260526`); because the secure environment lacks specialised survival/Bayesian libraries, they are implemented directly in NumPy/pandas and unit-tested on synthetic data (145 tests). Full specification: `docs/analysis_plan_2026.md`.
 
 ## 3. Results
 
@@ -105,7 +105,7 @@ The susceptible arm (n=21) is small and the headline interval does not exclude z
 
 ## 6. Reproducibility and deliverables
 
-Open-source pipeline (Apache-2.0, GitHub + Zenodo): SPIDAAR/ATLAS loaders, competing-risks excess-LOS + sensitivity + figure, Bayesian companion, the random-effects Bayesian evidence synthesis, the isolate-mechanism breakdown + relinkage machinery, ATLAS nowcast + frame-contrast, the global and catchment-specific R&D mismatch indices, the g-formula (with stratified-bootstrap CIs + an E-value), and the Streamlit tool; 135 unit tests on synthetic data; pre-registration + deviation log + OSF addendum. No stewardship recommendation is claimed final without local validation; the framework is built as infrastructure for catchment-region researchers, who have been engaged for independent review.
+Open-source pipeline (Apache-2.0, GitHub + Zenodo): SPIDAAR/ATLAS loaders, competing-risks excess-LOS + sensitivity + figure, Bayesian companion, the random-effects Bayesian evidence synthesis, the isolate-mechanism breakdown + relinkage machinery, ATLAS nowcast + frame-contrast, the global and catchment-specific R&D mismatch indices, the g-formula (with stratified-bootstrap CIs + an E-value), and the Streamlit tool; 145 unit tests on synthetic data; pre-registration + deviation log + OSF addendum. No stewardship recommendation is claimed final without local validation; the framework is built as infrastructure for catchment-region researchers, who have been engaged for independent review.
 
 ---
 
