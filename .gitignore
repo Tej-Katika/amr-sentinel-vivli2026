@@ -30,6 +30,9 @@ uv.lock.tmp
 # Challenge admin docs — keep local, not in version control
 EOI.pdf
 
+# Confirmatory-run output (regenerated per run; carries data-derived numbers)
+confirmatory_results.json
+
 # Environment / secrets
 .env
 *.key
