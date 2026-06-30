@@ -1,7 +1,14 @@
 # Secure-environment confirmatory-run runbook
 
-Step-by-step for reproducing and egressing the AMR Sentinel headline numbers inside the
-Vivli AMR secure environment. This is the **Step 6** referenced in the project plan.
+Step-by-step for the confirmatory run that reproduces the AMR Sentinel headline numbers on
+the real delivered data (the project plan's **Step 6**).
+
+For the AMR Surveillance Open Data Re-Use Challenge the AMR Register data is **downloaded**
+under the Data Use Agreement once the team's request is approved, and analysed within the
+8-week window — on your own environment or, optionally, in the Vivli Secure Research
+Environment (R/Python/Jupyter/SAS/STATA). So this run executes on whatever machine holds the
+delivered files; there is no mandatory locked enclave with egress for this challenge. The
+steps below are identical either way.
 
 ## What this does
 
@@ -88,11 +95,28 @@ PYTHONPATH=src python scripts/make_figures.py
 Writes `figures/excess_los_stateoccupation.png`, `evidence_forest.png`,
 `spidaar_framecontrast.png`, `rd_mismatch_global_vs_catchment.png` (needs `matplotlib`).
 
-**8 — Egress** — submit `confirmatory_results.json` and the four PNGs through Vivli egress
-review. These are aggregate outputs only; no row-level data leaves the environment.
+**8 — Verify the codebook gates** (from `docs/analysis_plan_2026.md` §"Hard gates"). These
+confirm the loader's field semantics against the official SPIDAAR codebook. Most are already
+effectively resolved because the pipeline runs cleanly on the real files; confirm and tick:
 
-**9 — Finalize** — if step 5 is clean (PASS / DRIFT*-only), the report's "Final Submission"
-status is validated. If an unflagged DRIFT appeared, correct it before submitting.
+| Gate | Check | Status |
+|------|-------|--------|
+| **L** | `los` / `disev` / `ward` / `enrtpt` actually present in `patientdata.xls` | resolved — the loader reads them (Component 1 has its outcome) |
+| **A** | a patient-side empiric-adequacy field exists (`txadp`, coded adequate=0 / inadequate=1 / unknown=9) | resolved against the on-disk codebook (g-formula treatment node) |
+| **T** | `amrp` is the index-isolate resistance, exposure fixed at baseline | confirm wording against the codebook |
+| **E** | `enrtpt` day-count semantics (enrolment time origin) match the excess-LOS clock | confirm against the codebook |
+| **X** | EUCAST-v15 MIC re-derivation for the ATLAS panel cells | **deferred** — ATLAS interpretation column used instead; immaterial to the headline |
+
+If Gate L or A ever fails on a fresh extract, escalate before trusting Components 1 / 5.
+
+**9 — Egress / export** — for the AMR Open Data Re-Use Challenge the Register data is
+downloaded under the DUA, so there is no mandatory enclave egress; keep `confirmatory_results.json`
+and the four PNGs for the submission, and keep the licensed-data figures out of any public repo
+(they are gitignored). If you ran inside the Vivli SRE instead, pull those same files out through
+the SRE's export step.
+
+**10 — Finalize** — if step 5 is clean (PASS / DRIFT*-only) and the gates check out, the report's
+"Final Submission" status is validated. If an unflagged DRIFT appeared, correct it before submitting.
 
 ## Notes
 
