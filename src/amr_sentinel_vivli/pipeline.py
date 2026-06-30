@@ -20,7 +20,11 @@ from .excess_los_sensitivity import (
     simulate_rmst_precision,
 )
 from .isolate_mechanisms import run_isolate_mechanisms
-from .rd_alignment import catchment_alignment, gram_panel_alignment
+from .rd_alignment import (
+    catchment_alignment,
+    genus_robustness_alignment,
+    gram_panel_alignment,
+)
 from .stewardship_gformula import run_stewardship_gformula
 
 
@@ -66,6 +70,10 @@ def run() -> dict:
     # Catchment-specific Cross-Domain finding: re-weight the mismatch by the local severe-HAI
     # pathogen mix (SPIDAAR isolates) — the global ranking made regional with our own data.
     rd_alignment_catchment = catchment_alignment(spidaar_isolates)
+    # Robustness cross-check: re-run the global ranking against a live, directly-extracted Hub
+    # "by Genus" Data Table (broader scope) — confirms the finding is not an artefact of the
+    # published Czaplewski transcription. Cross-check only; not the primary denominator.
+    rd_alignment_genus_robustness = genus_robustness_alignment()
 
     return {
         "excess_los": excess,
@@ -81,6 +89,7 @@ def run() -> dict:
         "stewardship": stewardship,
         "rd_alignment": rd_alignment,
         "rd_alignment_catchment": rd_alignment_catchment,
+        "rd_alignment_genus_robustness": rd_alignment_genus_robustness,
     }
 
 

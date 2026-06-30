@@ -8,6 +8,7 @@ from amr_sentinel_vivli import config
 from amr_sentinel_vivli.rd_alignment import (
     GRAM_BURDEN_2019,
     GRAM_PANEL,
+    RD_HUB_GENUS_SNAPSHOT,
     RD_HUB_SNAPSHOT_2026,
     alignment_caption,
     analyze_alignment,
@@ -15,6 +16,7 @@ from amr_sentinel_vivli.rd_alignment import (
     catchment_pathogen_counts,
     cross_cutting_headline,
     cross_cutting_share,
+    genus_robustness_alignment,
     gram_panel_alignment,
     mismatch_index,
     monte_carlo_mismatch_ranking,
@@ -226,6 +228,41 @@ def test_gram_panel_alignment_gated_on_snapshot(monkeypatch):
     monkeypatch.setattr(config, "RD_HUB_SNAPSHOT_DATE", None)
     with pytest.raises(ValueError, match="RD_HUB_SNAPSHOT_DATE"):
         gram_panel_alignment(draws=100)
+
+
+# --- Genus-extract robustness cross-check -----------------------------------------
+
+def test_genus_snapshot_constant_well_formed():
+    funding = RD_HUB_GENUS_SNAPSHOT["funding_musd"]
+    assert set(funding) == set(GRAM_BURDEN_2019)          # all six panel species mapped
+    assert all(v > 0 for v in funding.values())
+    assert RD_HUB_GENUS_SNAPSHOT["extract_date"] == "2026-06-29"
+
+
+def test_genus_robustness_reproducible_and_core_finding_holds():
+    a = genus_robustness_alignment(draws=3000, seed=4)
+    b = genus_robustness_alignment(draws=3000, seed=4)
+    assert a["per_pathogen"] == b["per_pathogen"]         # deterministic
+
+    pp = a["per_pathogen"]
+    # Robust to the broader live extract: community Gram-negatives stay under-funded,
+    # S. aureus / P. aeruginosa stay over-funded (same direction as the primary index).
+    assert pp["Klebsiella pneumoniae"]["log2_mismatch_median"] > 0
+    assert pp["Escherichia coli"]["log2_mismatch_median"] > 0
+    assert pp["Pseudomonas aeruginosa"]["log2_mismatch_median"] < 0
+    assert pp["Staphylococcus aureus"]["log2_mismatch_median"] < 0
+    for p in ("Klebsiella pneumoniae", "Escherichia coli",
+              "Pseudomonas aeruginosa", "Staphylococcus aureus"):
+        assert a["comparison"]["direction_agrees"][p] is True
+
+
+def test_genus_robustness_pneumococcus_rank_is_scope_sensitive():
+    out = genus_robustness_alignment(draws=3000, seed=4)
+    # S. pneumoniae tops the primary (species-level) ranking but NOT the genus ranking:
+    # "Streptococcus spp." aggregates non-pneumococcal streptococci and masks the gap.
+    assert out["comparison"]["primary_ranking"][0] == "Streptococcus pneumoniae"
+    assert out["underfunded_ranking"][0] != "Streptococcus pneumoniae"
+    assert out["comparison"]["direction_agrees"]["Streptococcus pneumoniae"] is False
 
 
 # --- Catchment-specific alignment -------------------------------------------------

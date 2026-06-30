@@ -98,6 +98,37 @@ RD_HUB_SNAPSHOT_2026: dict = {
     "source": "Czaplewski et al., Lancet Microbe 2026 (epub 2026-01-09)",
 }
 
+# Robustness denominator: a live, directly-extracted Global AMR R&D Hub "by Genus" Data
+# Table (Dynamic Dashboard / Investment Gallery, last updated 2026-06-29). US$ millions,
+# mapped genus -> GRAM panel species. This is a BROADER scope than the locked Czaplewski
+# denominator above and is used ONLY as a cross-check (``genus_robustness_alignment``),
+# never as the primary index denominator. Scope of this extract, recorded verbatim from the
+# export's "Applied filters" header:
+#   * Infectious Agent (Group) = Bacteria, CategoryType = Human, Currency = USD,
+#     Status = Active or Closed
+#   * NO funder-type filter (includes private-for-profit and venture capital),
+#     NO research-area filter (all areas, not just therapeutics), and ALL years (the
+#     cumulative table includes future-dated commitments) -> totals are the full ~$17.9bn
+#     human bacterial universe, not the $2.51bn public+philanthropic therapeutics subset.
+#   * GENUS level: Escherichia/Klebsiella/Acinetobacter/Pseudomonas ~= the panel species,
+#     but "Staphylococcus spp." and "Streptococcus spp." are broader than S. aureus /
+#     S. pneumoniae (so the genus row understates the pneumococcus-specific gap).
+RD_HUB_GENUS_SNAPSHOT: dict = {
+    "funding_musd": {
+        "Escherichia coli": 461.646979,        # Escherichia spp.
+        "Staphylococcus aureus": 928.041273,   # Staphylococcus spp. (genus > S. aureus)
+        "Klebsiella pneumoniae": 305.445962,    # Klebsiella spp.
+        "Streptococcus pneumoniae": 630.069491,  # Streptococcus spp. (genus >> S. pneumoniae)
+        "Acinetobacter baumannii": 265.925841,  # Acinetobacter spp.
+        "Pseudomonas aeruginosa": 692.226400,   # Pseudomonas spp.
+    },
+    "extract_date": "2026-06-29",
+    "scope": ("Hub 'by Genus' Data Table: Bacteria/Human/USD/Active-or-Closed; ALL funder "
+              "types, ALL research areas, ALL years; genus-level. Broader than the locked "
+              "public+philanthropic therapeutics 2017-2023 denominator — cross-check only."),
+    "source": "Global AMR R&D Hub Dynamic Dashboard, by-Genus export (last updated 2026-06-29)",
+}
+
 # Verified GRAM-2019 per-pathogen burden numerator, lifted from Murray et al. appendix 1
 # Table S22 ("Global deaths and DALYs ... by pathogen-drug combination, 2019", the
 # 'Resistance to one or more antibiotics' aggregate row per pathogen). Counts are in
@@ -467,6 +498,76 @@ def gram_panel_alignment(
                  "et al. 2026; the $113M E.coli/A.baumannii/K.pneumoniae split is unfetched "
                  "(appendix 1 p18) and propagated as uncertainty, not fabricated. Descriptive, "
                  "n=6, no fitted line."),
+    }
+
+
+def genus_robustness_alignment(
+    burden_metric: str = "assoc_deaths_k",
+    funding_musd: dict | None = None,
+    floor: float = 0.02,
+    draws: int | None = None,
+    seed: int | None = None,
+) -> dict:
+    """Robustness cross-check of the Component-4 ranking against a live Hub genus extract.
+
+    Re-runs the per-pathogen mismatch index with the same verified ``GRAM_BURDEN_2019``
+    numerator (burden UIs propagated by :func:`monte_carlo_mismatch_ranking`) but swaps the
+    locked Czaplewski denominator for a directly-extracted Hub "by Genus" Data Table
+    (``RD_HUB_GENUS_SNAPSHOT``). That extract is a BROADER scope — all funder types, all
+    research areas, all years, genus-level (see the constant's note) — so it is a sensitivity
+    check, NOT a replacement for the primary index.
+
+    Returns the per-pathogen log2 medians/CIs + P(most under-funded), the under-funded
+    ranking, the Spearman summary, and a direct comparison to the primary Czaplewski ranking
+    (``rank_match`` per pathogen + the qualitative direction agreement). The headline finding
+    holds when the community Gram-negatives stay under-funded and S. aureus / P. aeruginosa
+    stay over-funded; the pneumococcus rank is expected to be scope-sensitive because the
+    genus row aggregates non-pneumococcal streptococci.
+    """
+    funding = RD_HUB_GENUS_SNAPSHOT["funding_musd"] if funding_musd is None else funding_musd
+    if draws is None:
+        draws = config.MONTE_CARLO_DRAWS
+    if seed is None:
+        seed = config.step_seed(4)
+
+    burden_ui = {p: GRAM_BURDEN_2019[p][burden_metric] for p in GRAM_BURDEN_2019}
+    mc = monte_carlo_mismatch_ranking(burden_ui, funding, floor=floor, draws=draws, seed=seed)
+    per_pathogen = mc["per_pathogen"]
+    ranked = sorted(per_pathogen, key=lambda p: per_pathogen[p]["log2_mismatch_median"],
+                    reverse=True)
+
+    median_burden = {p: GRAM_BURDEN_2019[p][burden_metric][0] for p in GRAM_BURDEN_2019}
+    spearman = spearman_burden_funding(median_burden, funding, seed=seed)
+
+    # Compare against the primary (Czaplewski) index run on the same metric/floor/seed.
+    primary = gram_panel_alignment(burden_metric=burden_metric, floor=floor,
+                                   draws=draws, seed=seed)
+    primary_rank = primary["underfunded_ranking"]
+    comparison = {
+        "primary_ranking": primary_rank,
+        "genus_ranking": ranked,
+        "rank_match": {p: (primary_rank.index(p) == ranked.index(p)) for p in ranked},
+        "direction_agrees": {
+            p: ((per_pathogen[p]["log2_mismatch_median"] > 0)
+                == (primary["per_pathogen"][p]["log2_mismatch_median"] > 0))
+            for p in ranked
+        },
+    }
+    return {
+        "burden_metric": burden_metric,
+        "floor": floor,
+        "draws": int(draws),
+        "funding_source": RD_HUB_GENUS_SNAPSHOT["source"],
+        "scope_caveat": RD_HUB_GENUS_SNAPSHOT["scope"],
+        "spearman": spearman,
+        "per_pathogen": per_pathogen,
+        "underfunded_ranking": ranked,
+        "comparison": comparison,
+        "note": ("Sensitivity check: same GRAM-2019 burden numerator, denominator swapped to "
+                 "a live Hub by-Genus extract (all funders/areas/years, genus-level). The "
+                 "Gram-negative under-funding and S. aureus / P. aeruginosa over-funding are "
+                 "robust; the S. pneumoniae rank is scope-sensitive (genus aggregates "
+                 "non-pneumococcal streptococci, masking the species-specific gap)."),
     }
 
 
