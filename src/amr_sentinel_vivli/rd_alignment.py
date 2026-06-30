@@ -99,34 +99,41 @@ RD_HUB_SNAPSHOT_2026: dict = {
 }
 
 # Robustness denominator: a live, directly-extracted Global AMR R&D Hub "by Genus" Data
-# Table (Dynamic Dashboard / Investment Gallery, last updated 2026-06-29). US$ millions,
-# mapped genus -> GRAM panel species. This is a BROADER scope than the locked Czaplewski
-# denominator above and is used ONLY as a cross-check (``genus_robustness_alignment``),
-# never as the primary index denominator. Scope of this extract, recorded verbatim from the
+# Table (Dynamic Dashboard / Investment Gallery, last updated 2026-06-30). US$ millions,
+# mapped genus -> GRAM panel species. Used ONLY as a cross-check (``genus_robustness_alignment``),
+# never as the primary index denominator (which stays the frozen, published Czaplewski
+# extract above). Scope was set on the dashboard BEFORE export to MATCH the locked
+# public+philanthropic therapeutics 2017-2023 denominator; recorded verbatim from the
 # export's "Applied filters" header:
-#   * Infectious Agent (Group) = Bacteria, CategoryType = Human, Currency = USD,
+#   * Infectious Agent (Group) = Bacteria, CategoryType (Sector) = Human, Currency = USD,
 #     Status = Active or Closed
-#   * NO funder-type filter (includes private-for-profit and venture capital),
-#     NO research-area filter (all areas, not just therapeutics), and ALL years (the
-#     cumulative table includes future-dated commitments) -> totals are the full ~$17.9bn
-#     human bacterial universe, not the $2.51bn public+philanthropic therapeutics subset.
-#   * GENUS level: Escherichia/Klebsiella/Acinetobacter/Pseudomonas ~= the panel species,
-#     but "Staphylococcus spp." and "Streptococcus spp." are broader than S. aureus /
-#     S. pneumoniae (so the genus row understates the pneumococcus-specific gap).
+#   * CategoryType (Research Area) = Therapeutics (NOT basic research / vaccines / diagnostics)
+#   * Year in 2017..2023 (7 years; excludes the future-dated 2024-2033 commitments)
+#   * FunderType in {Public-Government, Public-Other, Private-Non Profit} (the public+
+#     philanthropic set; EXCLUDES Public-Private partnerships)
+#   -> total $2,436M, 128 funders ~= the $2.51bn / 130-funder Czaplewski denominator (the
+#      small residual is the Hub's documented retrospective revision: live 2026-06-30 vs
+#      Czaplewski's 2026-01-09 freeze).
+#   * GENUS level: Escherichia/Klebsiella/Acinetobacter/Pseudomonas ~= the panel species;
+#     "Staphylococcus spp." and "Streptococcus spp." are broader than S. aureus /
+#     S. pneumoniae, but the Therapeutics filter strips out pneumococcal-vaccine R&D, so
+#     (unlike the old all-areas pull) the genus row no longer masks the pneumococcus gap.
 RD_HUB_GENUS_SNAPSHOT: dict = {
     "funding_musd": {
-        "Escherichia coli": 461.646979,        # Escherichia spp.
-        "Staphylococcus aureus": 928.041273,   # Staphylococcus spp. (genus > S. aureus)
-        "Klebsiella pneumoniae": 305.445962,    # Klebsiella spp.
-        "Streptococcus pneumoniae": 630.069491,  # Streptococcus spp. (genus >> S. pneumoniae)
-        "Acinetobacter baumannii": 265.925841,  # Acinetobacter spp.
-        "Pseudomonas aeruginosa": 692.226400,   # Pseudomonas spp.
+        "Escherichia coli": 42.872256,          # Escherichia spp.
+        "Staphylococcus aureus": 219.914081,    # Staphylococcus spp. (genus > S. aureus)
+        "Klebsiella pneumoniae": 53.920828,     # Klebsiella spp.
+        "Streptococcus pneumoniae": 27.236003,  # Streptococcus spp. (therapeutics only)
+        "Acinetobacter baumannii": 71.619879,   # Acinetobacter spp.
+        "Pseudomonas aeruginosa": 146.874858,   # Pseudomonas spp.
     },
-    "extract_date": "2026-06-29",
-    "scope": ("Hub 'by Genus' Data Table: Bacteria/Human/USD/Active-or-Closed; ALL funder "
-              "types, ALL research areas, ALL years; genus-level. Broader than the locked "
-              "public+philanthropic therapeutics 2017-2023 denominator — cross-check only."),
-    "source": "Global AMR R&D Hub Dynamic Dashboard, by-Genus export (last updated 2026-06-29)",
+    "extract_date": "2026-06-30",
+    "scope": ("Hub 'by Genus' Data Table: Bacteria/Human/USD/Active-or-Closed; Research Area "
+              "= Therapeutics; Year 2017-2023; FunderType = public+philanthropic (Public-"
+              "Government + Public-Other + Private-Non Profit, excl. Public-Private); genus-"
+              "level. Scoped to match the locked Czaplewski denominator (total $2,436M / 128 "
+              "funders ~= $2.51bn / 130) — live cross-check, not a replacement."),
+    "source": "Global AMR R&D Hub Dynamic Dashboard, by-Genus export (last updated 2026-06-30)",
 }
 
 # Verified GRAM-2019 per-pathogen burden numerator, lifted from Murray et al. appendix 1
@@ -512,17 +519,18 @@ def genus_robustness_alignment(
 
     Re-runs the per-pathogen mismatch index with the same verified ``GRAM_BURDEN_2019``
     numerator (burden UIs propagated by :func:`monte_carlo_mismatch_ranking`) but swaps the
-    locked Czaplewski denominator for a directly-extracted Hub "by Genus" Data Table
-    (``RD_HUB_GENUS_SNAPSHOT``). That extract is a BROADER scope — all funder types, all
-    research areas, all years, genus-level (see the constant's note) — so it is a sensitivity
-    check, NOT a replacement for the primary index.
+    frozen, published Czaplewski denominator for a live, directly-extracted Hub "by Genus"
+    Data Table (``RD_HUB_GENUS_SNAPSHOT``) scoped on the dashboard to MATCH that denominator
+    (public+philanthropic therapeutics, 2017-2023, genus-level; see the constant's note) — so
+    it is an independent-source corroboration, NOT a replacement for the primary index.
 
     Returns the per-pathogen log2 medians/CIs + P(most under-funded), the under-funded
     ranking, the Spearman summary, and a direct comparison to the primary Czaplewski ranking
-    (``rank_match`` per pathogen + the qualitative direction agreement). The headline finding
-    holds when the community Gram-negatives stay under-funded and S. aureus / P. aeruginosa
-    stay over-funded; the pneumococcus rank is expected to be scope-sensitive because the
-    genus row aggregates non-pneumococcal streptococci.
+    (``rank_match`` per pathogen + the qualitative direction agreement). The finding is
+    corroborated: the community Gram-negatives stay under-funded and S. aureus / P. aeruginosa
+    stay over-funded; and because the Therapeutics filter strips pneumococcal-vaccine R&D, the
+    live extract now RECOVERS the S. pneumoniae under-funding signal that an all-areas genus
+    pull had masked.
     """
     funding = RD_HUB_GENUS_SNAPSHOT["funding_musd"] if funding_musd is None else funding_musd
     if draws is None:
@@ -563,11 +571,12 @@ def genus_robustness_alignment(
         "per_pathogen": per_pathogen,
         "underfunded_ranking": ranked,
         "comparison": comparison,
-        "note": ("Sensitivity check: same GRAM-2019 burden numerator, denominator swapped to "
-                 "a live Hub by-Genus extract (all funders/areas/years, genus-level). The "
-                 "Gram-negative under-funding and S. aureus / P. aeruginosa over-funding are "
-                 "robust; the S. pneumoniae rank is scope-sensitive (genus aggregates "
-                 "non-pneumococcal streptococci, masking the species-specific gap)."),
+        "note": ("Independent-source corroboration: same GRAM-2019 burden numerator, "
+                 "denominator swapped to a live Hub by-Genus extract scoped to match the "
+                 "Czaplewski denominator (public+phil therapeutics 2017-2023, genus-level). "
+                 "The Gram-negative under-funding and S. aureus / P. aeruginosa over-funding "
+                 "are corroborated; the Therapeutics filter strips pneumococcal-vaccine R&D so "
+                 "the live extract recovers the S. pneumoniae under-funding signal."),
     }
 
 

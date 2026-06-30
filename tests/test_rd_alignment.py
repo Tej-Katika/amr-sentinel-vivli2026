@@ -236,7 +236,10 @@ def test_genus_snapshot_constant_well_formed():
     funding = RD_HUB_GENUS_SNAPSHOT["funding_musd"]
     assert set(funding) == set(GRAM_BURDEN_2019)          # all six panel species mapped
     assert all(v > 0 for v in funding.values())
-    assert RD_HUB_GENUS_SNAPSHOT["extract_date"] == "2026-06-29"
+    assert RD_HUB_GENUS_SNAPSHOT["extract_date"] == "2026-06-30"
+    # In-scope extract: the six mapped species total well under the full ~$17.9bn universe
+    # and land in the public+philanthropic therapeutics range (sanity vs an all-areas pull).
+    assert sum(funding.values()) < 1000.0
 
 
 def test_genus_robustness_reproducible_and_core_finding_holds():
@@ -245,7 +248,7 @@ def test_genus_robustness_reproducible_and_core_finding_holds():
     assert a["per_pathogen"] == b["per_pathogen"]         # deterministic
 
     pp = a["per_pathogen"]
-    # Robust to the broader live extract: community Gram-negatives stay under-funded,
+    # Corroborated by the in-scope live extract: community Gram-negatives stay under-funded,
     # S. aureus / P. aeruginosa stay over-funded (same direction as the primary index).
     assert pp["Klebsiella pneumoniae"]["log2_mismatch_median"] > 0
     assert pp["Escherichia coli"]["log2_mismatch_median"] > 0
@@ -254,15 +257,19 @@ def test_genus_robustness_reproducible_and_core_finding_holds():
     for p in ("Klebsiella pneumoniae", "Escherichia coli",
               "Pseudomonas aeruginosa", "Staphylococcus aureus"):
         assert a["comparison"]["direction_agrees"][p] is True
+    # Inverse burden<->funding mismatch (negative Spearman) holds on the live denominator too.
+    assert a["spearman"]["spearman_rho"] < 0
 
 
-def test_genus_robustness_pneumococcus_rank_is_scope_sensitive():
+def test_genus_robustness_recovers_pneumococcus_under_therapeutics_scope():
     out = genus_robustness_alignment(draws=3000, seed=4)
-    # S. pneumoniae tops the primary (species-level) ranking but NOT the genus ranking:
-    # "Streptococcus spp." aggregates non-pneumococcal streptococci and masks the gap.
+    # S. pneumoniae tops the primary (species-level) ranking. The in-scope live extract is
+    # filtered to Therapeutics, which strips pneumococcal-vaccine R&D, so (unlike an
+    # all-research-areas genus pull) the live extract RECOVERS the pneumococcus signal:
+    # it tops the live ranking too and agrees on direction.
     assert out["comparison"]["primary_ranking"][0] == "Streptococcus pneumoniae"
-    assert out["underfunded_ranking"][0] != "Streptococcus pneumoniae"
-    assert out["comparison"]["direction_agrees"]["Streptococcus pneumoniae"] is False
+    assert out["underfunded_ranking"][0] == "Streptococcus pneumoniae"
+    assert out["comparison"]["direction_agrees"]["Streptococcus pneumoniae"] is True
 
 
 # --- Catchment-specific alignment -------------------------------------------------

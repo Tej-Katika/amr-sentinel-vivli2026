@@ -92,11 +92,11 @@
     {"path": "rd_alignment_catchment.per_pathogen.Streptococcus pneumoniae.log2_mismatch_median", "expected": -0.5912, "tol": 0.3, "report": "S. pneumoniae flips to ~ -0.6 (over-funded)", "ref": "§3.4 catchment mismatch", "secure_env_upgrade": true},
     {"path": "rd_alignment_catchment.underfunded_ranking", "expected": ["Klebsiella pneumoniae", "Escherichia coli", "Acinetobacter baumannii", "Streptococcus pneumoniae", "Pseudomonas aeruginosa", "Staphylococcus aureus"], "tol": 0, "report": "catchment under-funded ranking", "ref": "§3.4 catchment ranking"},
 
-    {"path": "rd_alignment_genus_robustness.per_pathogen.Klebsiella pneumoniae.log2_mismatch_median", "expected": 0.9386, "tol": 0.05, "report": "K. pneumoniae stays under-funded", "ref": "§3.4 robustness cross-check (live Hub by-genus extract)"},
-    {"path": "rd_alignment_genus_robustness.per_pathogen.Escherichia coli.log2_mismatch_median", "expected": 0.7146, "tol": 0.05, "report": "E. coli stays under-funded", "ref": "§3.4 robustness cross-check"},
-    {"path": "rd_alignment_genus_robustness.per_pathogen.Pseudomonas aeruginosa.log2_mismatch_median", "expected": -1.1877, "tol": 0.05, "report": "P. aeruginosa stays over-funded", "ref": "§3.4 robustness cross-check"},
-    {"path": "rd_alignment_genus_robustness.per_pathogen.Staphylococcus aureus.log2_mismatch_median", "expected": -0.4465, "tol": 0.05, "report": "S. aureus stays over-funded", "ref": "§3.4 robustness cross-check"},
-    {"path": "rd_alignment_genus_robustness.per_pathogen.Streptococcus pneumoniae.log2_mismatch_median", "expected": -0.2171, "tol": 0.05, "report": "S. pneumoniae attenuates (genus masks species gap)", "ref": "§3.4 robustness cross-check (scope-sensitive)"},
-    {"path": "rd_alignment_genus_robustness.underfunded_ranking", "expected": ["Klebsiella pneumoniae", "Escherichia coli", "Acinetobacter baumannii", "Streptococcus pneumoniae", "Staphylococcus aureus", "Pseudomonas aeruginosa"], "tol": 0, "report": "genus-extract under-funded ranking", "ref": "§3.4 robustness cross-check"}
+    {"path": "rd_alignment_genus_robustness.per_pathogen.Klebsiella pneumoniae.log2_mismatch_median", "expected": 0.8867, "tol": 0.05, "report": "K. pneumoniae stays under-funded", "ref": "§3.4 robustness cross-check (in-scope live Hub by-genus extract)"},
+    {"path": "rd_alignment_genus_robustness.per_pathogen.Escherichia coli.log2_mismatch_median", "expected": 1.5966, "tol": 0.05, "report": "E. coli stays under-funded", "ref": "§3.4 robustness cross-check"},
+    {"path": "rd_alignment_genus_robustness.per_pathogen.Pseudomonas aeruginosa.log2_mismatch_median", "expected": -1.4966, "tol": 0.05, "report": "P. aeruginosa stays over-funded", "ref": "§3.4 robustness cross-check"},
+    {"path": "rd_alignment_genus_robustness.per_pathogen.Staphylococcus aureus.log2_mismatch_median", "expected": -0.9122, "tol": 0.05, "report": "S. aureus stays over-funded", "ref": "§3.4 robustness cross-check"},
+    {"path": "rd_alignment_genus_robustness.per_pathogen.Streptococcus pneumoniae.log2_mismatch_median", "expected": 1.7641, "tol": 0.05, "report": "S. pneumoniae recovered as under-funded (Therapeutics scope strips vaccine R&D)", "ref": "§3.4 robustness cross-check"},
+    {"path": "rd_alignment_genus_robustness.underfunded_ranking", "expected": ["Streptococcus pneumoniae", "Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter baumannii", "Staphylococcus aureus", "Pseudomonas aeruginosa"], "tol": 0, "report": "genus-extract under-funded ranking", "ref": "§3.4 robustness cross-check"}
   ]
 }
