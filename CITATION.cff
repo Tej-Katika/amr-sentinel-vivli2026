@@ -1,0 +1,41 @@
+cff-version: 1.2.0
+message: "If you use this software or its analysis, please cite it as below."
+title: "AMR Sentinel: a competing-risks reframing of AMR burden and a burden–funding–surveillance mismatch analysis (Vivli 2026 AMR Surveillance Open Data Re-Use Data Challenge)"
+abstract: >-
+  Pre-registered, reproducible analysis pipeline for the 2026 Vivli AMR Surveillance Open Data
+  Re-Use Data Challenge. It reframes the resistance→mortality question as resistance-attributable
+  excess bed-days under competing risks, quantifies the empiric-adequacy stewardship lever with a
+  g-formula, and builds a three-axis Cross-Domain mismatch (disease burden vs R&D funding vs
+  disease surveillance) across the SPIDAAR, Pfizer ATLAS, and Global AMR R&D Hub datasets.
+type: software
+authors:
+  - family-names: Katika
+    given-names: Tejashwar Reddy
+    affiliation: "Independent Researcher; University of North Texas"
+  - family-names: Katika
+    given-names: Akhilesh Reddy
+    affiliation: "Flinders University"
+version: 0.1.0
+date-released: "2026-06-30"
+license: Apache-2.0
+repository-code: "https://github.com/Tej-Katika/amr-sentinel-vivli2026"
+keywords:
+  - antimicrobial resistance
+  - competing risks
+  - excess length of stay
+  - g-formula
+  - R&D funding alignment
+  - surveillance
+  - sub-Saharan Africa
+  - SPIDAAR
+  - Pfizer ATLAS
+  - Global AMR R&D Hub
+references:
+  - type: report
+    title: "Pre-registration: SPIDAAR-anchored AMR analysis (2026 Vivli AMR Data Challenge)"
+    authors:
+      - family-names: Katika
+        given-names: Tejashwar Reddy
+      - family-names: Katika
+        given-names: Akhilesh Reddy
+    doi: "10.17605/OSF.IO/BFQDP"

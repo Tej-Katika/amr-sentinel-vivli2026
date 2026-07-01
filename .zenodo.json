@@ -1,0 +1,44 @@
+{
+  "title": "AMR Sentinel: a competing-risks reframing of AMR burden and a burden–funding–surveillance mismatch analysis (Vivli 2026 AMR Surveillance Open Data Re-Use Data Challenge)",
+  "description": "Pre-registered, fully reproducible analysis pipeline for the 2026 Vivli AMR Surveillance Open Data Re-Use Data Challenge. Anchored on the SPIDAAR sub-Saharan-African hospital cohort (with Pfizer ATLAS and the Global AMR R&D Hub as cross-domain datasets), it reframes the resistance→mortality question as resistance-attributable excess bed-days under competing risks, formalises the adjusted SSA/LMIC mortality evidence in a Bayesian synthesis, quantifies the empiric-adequacy stewardship lever with a g-formula (shipped as a Streamlit tool), and builds a three-axis Cross-Domain mismatch — disease burden vs R&D funding vs disease surveillance — showing all three neglect the same sub-Saharan-African community Gram-negatives. Estimators are implemented directly in NumPy/pandas and unit-tested on synthetic data (152 tests); a self-checking confirmatory harness reproduces every reported headline number. Every deviation from the OSF pre-registration is logged.",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "Apache-2.0",
+  "creators": [
+    {
+      "name": "Katika, Tejashwar Reddy",
+      "affiliation": "Independent Researcher; University of North Texas"
+    },
+    {
+      "name": "Katika, Akhilesh Reddy",
+      "affiliation": "Flinders University"
+    }
+  ],
+  "keywords": [
+    "antimicrobial resistance",
+    "AMR",
+    "competing risks",
+    "excess length of stay",
+    "g-formula",
+    "R&D funding alignment",
+    "surveillance",
+    "sub-Saharan Africa",
+    "SPIDAAR",
+    "Pfizer ATLAS",
+    "Global AMR R&D Hub",
+    "Vivli AMR Data Challenge"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.17605/OSF.IO/BFQDP",
+      "relation": "isSupplementTo",
+      "scheme": "doi",
+      "resource_type": "publication-preprint"
+    },
+    {
+      "identifier": "https://github.com/Tej-Katika/amr-sentinel-vivli2026",
+      "relation": "isDerivedFrom",
+      "scheme": "url"
+    }
+  ]
+}
