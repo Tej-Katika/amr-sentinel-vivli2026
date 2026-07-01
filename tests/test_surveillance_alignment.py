@@ -10,7 +10,10 @@ import pytest
 
 from amr_sentinel_vivli.rd_alignment import GRAM_BURDEN_2019
 from amr_sentinel_vivli.surveillance_alignment import (
+    EXTENDED_PANEL_ALIASES,
+    GRAM_ASSOC_DEATHS_EXTENDED,
     _gini,
+    expanded_surveillance_mismatch,
     geographic_concentration,
     panel_surveillance_counts,
     surveillance_burden_mismatch,
@@ -108,3 +111,34 @@ def test_geographic_concentration_ssa_blind_spot():
 def test_gini_bounds():
     assert _gini([1, 1, 1, 1]) == pytest.approx(0.0, abs=1e-9)   # perfectly even
     assert _gini([0, 0, 0, 100]) > 0.6                            # concentrated
+
+
+# --- Extended n=16 burden<->surveillance panel ------------------------------------
+
+def test_extended_burden_matches_core_panel_and_size():
+    # 16-pathogen panel; the six core species reuse the EXACT associated-death values
+    # already verified in rd_alignment.GRAM_BURDEN_2019 (guards a transcription slip).
+    assert len(GRAM_ASSOC_DEATHS_EXTENDED) == 16
+    assert set(EXTENDED_PANEL_ALIASES) == set(GRAM_ASSOC_DEATHS_EXTENDED)
+    for p in GRAM_BURDEN_2019:
+        assert GRAM_ASSOC_DEATHS_EXTENDED[p] == GRAM_BURDEN_2019[p]["assoc_deaths_k"]
+
+
+def test_expanded_mismatch_n16_correlated_and_reproducible():
+    # Surveillance counts proportional to burden -> strong positive Spearman with a CI.
+    counts = {p: int(GRAM_ASSOC_DEATHS_EXTENDED[p][0] * 100) for p in GRAM_ASSOC_DEATHS_EXTENDED}
+    a = expanded_surveillance_mismatch(counts=counts, draws=1500, seed=4)
+    b = expanded_surveillance_mismatch(counts=counts, draws=1500, seed=4)
+    assert a["per_pathogen"] == b["per_pathogen"]                 # deterministic
+    assert a["n_pathogens"] == 16
+    assert a["spearman"]["n_pathogens"] == 16
+    assert a["spearman"]["spearman_rho"] > 0.9                    # counts track burden
+    meds = [a["per_pathogen"][p]["log2_mismatch_median"] for p in a["undersurveilled_ranking"]]
+    assert meds == sorted(meds, reverse=True)
+
+
+def test_expanded_mismatch_rejects_zero_isolates():
+    counts = dict.fromkeys(GRAM_ASSOC_DEATHS_EXTENDED, 100)
+    counts["Morganella spp."] = 0
+    with pytest.raises(ValueError):
+        expanded_surveillance_mismatch(counts=counts)

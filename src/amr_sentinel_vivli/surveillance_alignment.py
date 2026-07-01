@@ -39,23 +39,129 @@ SSA_COUNTRIES: frozenset = frozenset({
     "Congo", "Niger", "Benin", "Togo", "Eswatini", "Gambia",
 })
 
+# Extended GRAM-2019 burden panel for the n=16 surveillance-mismatch (gives the descriptive
+# n=6 index real inferential weight). Verified verbatim from Murray et al. (Lancet 2022,
+# PMC8841637) appendix Table S22, the per-pathogen "Resistance to one or more antibiotics"
+# aggregate row, ASSOCIATED deaths (median, lo95, hi95) in thousands. Scope = pathogens with
+# both a Table-S22 associated-death estimate AND meaningful ATLAS surveillance (TB/gonorrhoea/
+# Salmonella/Shigella are in S22 but out of ATLAS scope, so excluded). The six panel species
+# reuse the exact values already in ``rd_alignment.GRAM_BURDEN_2019`` (a test enforces the match).
+GRAM_ASSOC_DEATHS_EXTENDED: dict = {
+    "Escherichia coli": (829.0, 601.0, 1120.0),
+    "Staphylococcus aureus": (748.0, 554.0, 1000.0),
+    "Klebsiella pneumoniae": (642.0, 465.0, 863.0),
+    "Streptococcus pneumoniae": (596.0, 490.0, 727.0),
+    "Acinetobacter baumannii": (423.0, 252.0, 647.0),
+    "Pseudomonas aeruginosa": (334.0, 234.0, 457.0),
+    "Enterococcus faecium": (200.0, 123.0, 303.0),
+    "Enterobacter spp.": (185.0, 122.0, 264.0),
+    "Group B Streptococcus": (173.0, 125.0, 232.0),
+    "Enterococcus faecalis": (112.0, 69.2, 167.0),
+    "Proteus spp.": (80.0, 52.7, 115.0),
+    "Serratia spp.": (42.7, 27.0, 65.3),
+    "Group A Streptococcus": (39.0, 18.3, 77.1),
+    "Citrobacter spp.": (35.5, 21.7, 52.9),
+    "Haemophilus influenzae": (31.5, 25.5, 39.0),
+    "Morganella spp.": (3.0, 1.93, 4.59),
+}
 
-def panel_surveillance_counts(atlas: pd.DataFrame, countries: frozenset | None = None) -> dict:
-    """ATLAS isolate counts per GRAM panel species (global by default).
+# ATLAS ``Species`` -> extended-panel pathogen. Genus-level entries ("... spp.") aggregate all
+# species of the genus (matching Table S22's genus rows); Group A/B Streptococcus map to
+# S. pyogenes / S. agalactiae; the six panel species stay species-specific (Acinetobacter and
+# the "spp." rows are genus-aggregated, as documented for the core panel).
+EXTENDED_PANEL_ALIASES: dict = {
+    "Escherichia coli": ("escherichia coli",),
+    "Staphylococcus aureus": ("staphylococcus aureus",),
+    "Klebsiella pneumoniae": ("klebsiella pneumoniae",),
+    "Streptococcus pneumoniae": ("streptococcus pneumoniae",),
+    "Acinetobacter baumannii": ("acinetobacter",),
+    "Pseudomonas aeruginosa": ("pseudomonas aeruginosa",),
+    "Enterococcus faecium": ("enterococcus faecium",),
+    "Enterobacter spp.": ("enterobacter",),
+    "Group B Streptococcus": ("streptococcus agalactiae",),
+    "Enterococcus faecalis": ("enterococcus faecalis",),
+    "Proteus spp.": ("proteus",),
+    "Serratia spp.": ("serratia",),
+    "Group A Streptococcus": ("streptococcus pyogenes",),
+    "Citrobacter spp.": ("citrobacter",),
+    "Haemophilus influenzae": ("haemophilus influenzae",),
+    "Morganella spp.": ("morganella",),
+}
 
-    Maps the ``Species`` string onto the six panel species via the shared
-    :data:`rd_alignment._PANEL_ALIASES` (so ATLAS, SPIDAAR-catchment and the burden/funding
-    axes all use one taxonomy). ``countries`` optionally restricts to a country set.
+
+def panel_surveillance_counts(
+    atlas: pd.DataFrame,
+    countries: frozenset | None = None,
+    aliases: dict | None = None,
+) -> dict:
+    """ATLAS isolate counts per panel pathogen (global by default).
+
+    Maps the ``Species`` string onto the panel via ``aliases`` (default the six-species
+    :data:`rd_alignment._PANEL_ALIASES`; pass :data:`EXTENDED_PANEL_ALIASES` for the n=16
+    panel) so ATLAS, SPIDAAR-catchment and the burden/funding axes share one taxonomy.
+    ``countries`` optionally restricts to a country set.
     """
+    aliases = aliases or _PANEL_ALIASES
     df = atlas if countries is None else atlas[atlas["Country"].astype(str).isin(countries)]
     sp = df["Species"].astype(str).str.lower()
     counts: dict = {}
-    for species, aliases in _PANEL_ALIASES.items():
+    for pathogen, keys in aliases.items():
         mask = np.zeros(len(df), dtype=bool)
-        for a in aliases:
+        for a in keys:
             mask |= sp.str.contains(a, regex=False).to_numpy()
-        counts[species] = int(mask.sum())
+        counts[pathogen] = int(mask.sum())
     return counts
+
+
+def expanded_surveillance_mismatch(
+    atlas: pd.DataFrame | None = None,
+    counts: dict | None = None,
+    floor: float = 0.02,
+    draws: int | None = None,
+    seed: int | None = None,
+) -> dict:
+    """Burden<->surveillance mismatch over the FULL n=16 GRAM/ATLAS pathogen panel.
+
+    Same machinery as :func:`surveillance_burden_mismatch` but over 16 pathogens
+    (:data:`GRAM_ASSOC_DEATHS_EXTENDED` associated-death burden vs ATLAS isolate counts) — so
+    the burden<->surveillance Spearman correlation carries a real bootstrap CI instead of the
+    n=6 point estimate. Returns the correlation, per-pathogen log2 medians/CIs, and the
+    under-surveilled ranking. Still descriptive, but powered enough to state a direction.
+    """
+    if counts is None:
+        if atlas is None:
+            raise ValueError("Pass either an ATLAS frame or precomputed extended-panel counts.")
+        counts = panel_surveillance_counts(atlas, aliases=EXTENDED_PANEL_ALIASES)
+    if draws is None:
+        draws = config.MONTE_CARLO_DRAWS
+    if seed is None:
+        seed = config.step_seed(4)
+
+    surveillance = {p: float(counts[p]) for p in GRAM_ASSOC_DEATHS_EXTENDED}
+    if min(surveillance.values()) <= 0:
+        raise ValueError(f"Every panel pathogen needs >0 surveillance isolates: {surveillance}")
+
+    mc = monte_carlo_mismatch_ranking(GRAM_ASSOC_DEATHS_EXTENDED, surveillance,
+                                      floor=floor, draws=draws, seed=seed)
+    per_pathogen = mc["per_pathogen"]
+    ranked = sorted(per_pathogen, key=lambda p: per_pathogen[p]["log2_mismatch_median"],
+                    reverse=True)
+
+    median_burden = {p: GRAM_ASSOC_DEATHS_EXTENDED[p][0] for p in GRAM_ASSOC_DEATHS_EXTENDED}
+    spearman = spearman_burden_funding(median_burden, surveillance, seed=seed)
+
+    return {
+        "n_pathogens": len(GRAM_ASSOC_DEATHS_EXTENDED),
+        "floor": floor,
+        "draws": int(draws),
+        "surveillance_counts": {p: int(counts[p]) for p in GRAM_ASSOC_DEATHS_EXTENDED},
+        "spearman": spearman,
+        "per_pathogen": per_pathogen,
+        "undersurveilled_ranking": ranked,
+        "note": ("Burden<->surveillance mismatch over the full n=16 GRAM/ATLAS panel "
+                 "(associated-death burden vs ATLAS isolate counts). Powers the n=6 index up: "
+                 "the Spearman correlation now carries a bootstrap CI."),
+    }
 
 
 def surveillance_burden_mismatch(
@@ -224,10 +330,13 @@ def run_surveillance_alignment(
         from . import data_loading
         atlas = data_loading.load_atlas_backbone()
     counts = panel_surveillance_counts(atlas)
+    counts_ext = panel_surveillance_counts(atlas, aliases=EXTENDED_PANEL_ALIASES)
     return {
         "panel_counts": {p: int(counts[p]) for p in GRAM_BURDEN_2019},
         "burden_surveillance_mismatch": surveillance_burden_mismatch(
             counts=counts, burden_metric=burden_metric, floor=floor, draws=draws, seed=seed),
+        "expanded_mismatch": expanded_surveillance_mismatch(
+            counts=counts_ext, floor=floor, draws=draws, seed=seed),
         "three_axis": three_axis_alignment(counts=counts, burden_metric=burden_metric),
         "geographic": geographic_concentration(atlas),
     }

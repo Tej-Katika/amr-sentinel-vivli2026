@@ -106,6 +106,11 @@
     {"path": "surveillance_alignment.geographic.gini_country_concentration", "expected": 0.6608, "tol": 0.02, "report": "Gini 0.66 across countries", "ref": "§3.5 surveillance blind spot"},
     {"path": "surveillance_alignment.burden_surveillance_mismatch.per_pathogen.Streptococcus pneumoniae.log2_mismatch_median", "expected": 1.0898, "tol": 0.1, "report": "S. pneumoniae most under-surveilled (~+1.1)", "ref": "§3.5 surveillance mismatch"},
     {"path": "surveillance_alignment.burden_surveillance_mismatch.spearman.spearman_rho", "expected": 0.5429, "tol": 0.05, "report": "surveillance broadly tracks burden by pathogen (rho ~+0.54)", "ref": "§3.5 surveillance mismatch"},
-    {"path": "surveillance_alignment.three_axis.neglected_on_all_axes", "expected": ["Streptococcus pneumoniae"], "tol": 0, "report": "S. pneumoniae neglected on burden+funding+surveillance", "ref": "§3.5 three-axis"}
+    {"path": "surveillance_alignment.three_axis.neglected_on_all_axes", "expected": ["Streptococcus pneumoniae"], "tol": 0, "report": "S. pneumoniae neglected on burden+funding+surveillance", "ref": "§3.5 three-axis"},
+
+    {"path": "surveillance_alignment.expanded_mismatch.n_pathogens", "expected": 16, "tol": 0, "report": "expanded surveillance panel = 16 pathogens", "ref": "§3.5 expanded mismatch"},
+    {"path": "surveillance_alignment.expanded_mismatch.spearman.spearman_rho", "expected": 0.8353, "tol": 0.02, "report": "surveillance tracks burden across 16 pathogens (rho +0.84)", "ref": "§3.5 expanded mismatch"},
+    {"path": "surveillance_alignment.expanded_mismatch.spearman.ci_lower", "expected": 0.5453, "tol": 0.06, "report": "n=16 Spearman 95% CI excludes 0 (lower +0.55)", "ref": "§3.5 expanded mismatch"},
+    {"path": "surveillance_alignment.expanded_mismatch.per_pathogen.Streptococcus pneumoniae.log2_mismatch_median", "expected": 1.2614, "tol": 0.1, "report": "S. pneumoniae most under-surveilled (n=16)", "ref": "§3.5 expanded mismatch"}
   ]
 }
