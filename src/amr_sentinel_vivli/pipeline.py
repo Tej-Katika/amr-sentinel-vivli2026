@@ -26,6 +26,7 @@ from .rd_alignment import (
     gram_panel_alignment,
 )
 from .stewardship_gformula import run_stewardship_gformula
+from .surveillance_alignment import run_surveillance_alignment
 
 
 def run() -> dict:
@@ -33,6 +34,7 @@ def run() -> dict:
     spidaar = data_loading.load_spidaar()
     spidaar_isolates = data_loading.load_spidaar_isolates()
     atlas = data_loading.load_atlas()
+    atlas_backbone = data_loading.load_atlas_backbone()
 
     # Component 1 (primary) + 1b (co-primary honesty analyses)
     excess = bootstrap_excess_los_ci(spidaar)
@@ -75,6 +77,11 @@ def run() -> dict:
     # published Czaplewski transcription. Cross-check only; not the primary denominator.
     rd_alignment_genus_robustness = genus_robustness_alignment()
 
+    # Component 6 (Cross-Domain): the surveillance blind-spot axis. Uses the full ATLAS
+    # register (~1M isolates) to show surveillance coverage is misaligned with burden the same
+    # way funding is — burden, funding, and surveillance all neglect the SSA Gram-negatives.
+    surveillance_alignment = run_surveillance_alignment(atlas_backbone)
+
     return {
         "excess_los": excess,
         "excess_los_standardized": excess_std,
@@ -90,6 +97,7 @@ def run() -> dict:
         "rd_alignment": rd_alignment,
         "rd_alignment_catchment": rd_alignment_catchment,
         "rd_alignment_genus_robustness": rd_alignment_genus_robustness,
+        "surveillance_alignment": surveillance_alignment,
     }
 
 

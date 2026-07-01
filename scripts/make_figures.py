@@ -25,6 +25,8 @@ from amr_sentinel_vivli.excess_los_figures import plot_excess_los
 from amr_sentinel_vivli.projection_figures import plot_frame_contrast
 from amr_sentinel_vivli.rd_alignment import catchment_alignment, gram_panel_alignment
 from amr_sentinel_vivli.rd_alignment_figures import plot_mismatch_global_vs_catchment
+from amr_sentinel_vivli.surveillance_alignment import run_surveillance_alignment
+from amr_sentinel_vivli.surveillance_alignment_figures import plot_surveillance_blindspot
 
 # Some figure labels carry non-ASCII (τ, →); force UTF-8 so stdout does not die on cp1252.
 if hasattr(sys.stdout, "reconfigure"):
@@ -39,12 +41,14 @@ def main(argv: list[str]) -> int:
     spidaar = data_loading.load_spidaar()
     spidaar_isolates = data_loading.load_spidaar_isolates()
     atlas = data_loading.load_atlas()
+    atlas_backbone = data_loading.load_atlas_backbone()
 
     print("Computing figure inputs ...")
     evidence = run_evidence_synthesis(spidaar)
     contrast = frame_contrast(atlas, spidaar_isolates)
     rd_global = gram_panel_alignment()
     rd_catchment = catchment_alignment(spidaar_isolates)
+    surveillance = run_surveillance_alignment(atlas_backbone)
 
     # (report-embed filename -> renderer). Names MUST match docs/final_report_2026.md.
     figures = [
@@ -53,6 +57,8 @@ def main(argv: list[str]) -> int:
         ("spidaar_framecontrast.png", lambda p: plot_frame_contrast(contrast, p)),
         ("rd_mismatch_global_vs_catchment.png",
          lambda p: plot_mismatch_global_vs_catchment(rd_global, rd_catchment, p)),
+        ("surveillance_blindspot.png",
+         lambda p: plot_surveillance_blindspot(surveillance, p)),
     ]
 
     print(f"Rendering {len(figures)} figures to {out_dir}/ ...")

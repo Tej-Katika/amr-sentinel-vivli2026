@@ -97,6 +97,15 @@
     {"path": "rd_alignment_genus_robustness.per_pathogen.Pseudomonas aeruginosa.log2_mismatch_median", "expected": -1.4966, "tol": 0.05, "report": "P. aeruginosa stays over-funded", "ref": "§3.4 robustness cross-check"},
     {"path": "rd_alignment_genus_robustness.per_pathogen.Staphylococcus aureus.log2_mismatch_median", "expected": -0.9122, "tol": 0.05, "report": "S. aureus stays over-funded", "ref": "§3.4 robustness cross-check"},
     {"path": "rd_alignment_genus_robustness.per_pathogen.Streptococcus pneumoniae.log2_mismatch_median", "expected": 1.7641, "tol": 0.05, "report": "S. pneumoniae recovered as under-funded (Therapeutics scope strips vaccine R&D)", "ref": "§3.4 robustness cross-check"},
-    {"path": "rd_alignment_genus_robustness.underfunded_ranking", "expected": ["Streptococcus pneumoniae", "Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter baumannii", "Staphylococcus aureus", "Pseudomonas aeruginosa"], "tol": 0, "report": "genus-extract under-funded ranking", "ref": "§3.4 robustness cross-check"}
+    {"path": "rd_alignment_genus_robustness.underfunded_ranking", "expected": ["Streptococcus pneumoniae", "Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter baumannii", "Staphylococcus aureus", "Pseudomonas aeruginosa"], "tol": 0, "report": "genus-extract under-funded ranking", "ref": "§3.4 robustness cross-check"},
+
+    {"path": "surveillance_alignment.geographic.total_isolates", "expected": 1011168, "tol": 0, "report": "~1.0M ATLAS isolates, 83 countries", "ref": "§3.5 surveillance blind spot"},
+    {"path": "surveillance_alignment.geographic.ssa.share", "expected": 0.022999, "tol": 0.0005, "report": "SSA = 2.3% of global surveillance", "ref": "§3.5 surveillance blind spot"},
+    {"path": "surveillance_alignment.geographic.catchment.share", "expected": 0.001502, "tol": 0.0002, "report": "catchment = 0.15% of surveillance", "ref": "§3.5 surveillance blind spot"},
+    {"path": "surveillance_alignment.geographic.top_country_to_ssa_ratio", "expected": 7.1328, "tol": 0.1, "report": "USA alone = ~7x all of SSA", "ref": "§3.5 surveillance blind spot"},
+    {"path": "surveillance_alignment.geographic.gini_country_concentration", "expected": 0.6608, "tol": 0.02, "report": "Gini 0.66 across countries", "ref": "§3.5 surveillance blind spot"},
+    {"path": "surveillance_alignment.burden_surveillance_mismatch.per_pathogen.Streptococcus pneumoniae.log2_mismatch_median", "expected": 1.0898, "tol": 0.1, "report": "S. pneumoniae most under-surveilled (~+1.1)", "ref": "§3.5 surveillance mismatch"},
+    {"path": "surveillance_alignment.burden_surveillance_mismatch.spearman.spearman_rho", "expected": 0.5429, "tol": 0.05, "report": "surveillance broadly tracks burden by pathogen (rho ~+0.54)", "ref": "§3.5 surveillance mismatch"},
+    {"path": "surveillance_alignment.three_axis.neglected_on_all_axes", "expected": ["Streptococcus pneumoniae"], "tol": 0, "report": "S. pneumoniae neglected on burden+funding+surveillance", "ref": "§3.5 three-axis"}
   ]
 }

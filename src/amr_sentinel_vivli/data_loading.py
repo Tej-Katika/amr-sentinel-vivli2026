@@ -409,6 +409,23 @@ def load_atlas(
     return frame.reset_index(drop=True)
 
 
+def load_atlas_backbone() -> pd.DataFrame:
+    """Full ATLAS Species/Country/Year backbone (every isolate) for Component 6.
+
+    Unlike :func:`load_atlas` (one drug cell, catchment-only), this reads the whole register
+    but only the three columns the surveillance blind-spot analysis needs — so it is cheap
+    despite the ~1M rows. Returns a tidy frame with ``Species``, ``Country`` and integer
+    ``Year`` (rows with an unparseable year are dropped). No resistance columns.
+    """
+    path = config.DATA_DIR / "atlas" / "atlas_vivli_2004_2024.csv"
+    raw = pd.read_csv(path, usecols=["Species", "Country", "Year"], low_memory=False)
+    raw = raw.assign(Year=pd.to_numeric(raw["Year"], errors="coerce"))
+    raw = raw.dropna(subset=["Species", "Country"])
+    if raw.empty:
+        raise ValueError("ATLAS backbone is empty after dropping rows without species/country.")
+    return raw.reset_index(drop=True)
+
+
 def load_smart() -> pd.DataFrame:
     """Load Merck SMART isolates (~300K+; pre-reg §5)."""
     raise NotImplementedError(_NOT_YET)

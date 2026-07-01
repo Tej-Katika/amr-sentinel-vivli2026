@@ -4,7 +4,7 @@
 
 **Vivli 2026 AMR Surveillance Open Data Re-Use Data Challenge — Final Submission**
 Tejashwar Reddy Katika (Independent Researcher, University of North Texas; Lead) · Akhilesh Reddy Katika (MS Data Science, Flinders University)
-Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0, 145 tests) · **Cross-Domain Award eligible**
+Datasets: **SPIDAAR** (primary) · **Pfizer ATLAS** · **Global AMR R&D Hub** · Pre-registration: [OSF 10.17605/OSF.IO/BFQDP](https://doi.org/10.17605/OSF.IO/BFQDP) · Code: GitHub/Zenodo (Apache-2.0, 152 tests) · **Cross-Domain Award eligible**
 
 > **Reproducibility.** Figures and headline numbers are produced by the committed pipeline on the delivered AMR Register / SPIDAAR files; a self-checking confirmatory harness (`scripts/confirmatory_run.py`) re-derives every headline value against a pinned manifest and reproduces them all (79/79 within tolerance). The R&D-Hub funding snapshot, the GRAM per-pathogen burden, and the SPIDAAR codebook gates (exposure and adequacy coding) are resolved and the Cross-Domain index is computed; the only un-fetched Component-4 input is the $113M split among three Gram-negatives (appendix-locked), propagated as uncertainty rather than guessed and not affecting the ranking. Every deviation from the pre-registration is logged in `docs/deviation_log.md` and a supplementary OSF addendum.
 >
@@ -28,7 +28,7 @@ So we move the headline onto **resistance-attributable excess bed-days** estimat
 
 **SPIDAAR** (Ghana, Kenya, Malawi, Uganda): 336 hospitalised patients with healthcare-associated infections; length-of-stay, in-hospital death, severity, ward, empiric-therapy adequacy, and a patient-level resistance summary; plus 244 isolates with per-mechanism resistance. **ATLAS**: 1.0 M isolates, of which 1,519 fall in the catchment; the analysable cell is **Enterobacterales (E. coli + K. pneumoniae) × ceftazidime** (665 isolates; ceftriaxone interpretation is blank in the catchment, and no catchment data exist after 2023). **Global AMR R&D Hub**: public + philanthropic funding, frozen at a dated snapshot.
 
-The exposure is pinned to a defensible contrast — **resistant = `amrp==2`; susceptible = `amrp==0` only** (untested/unascertained excluded). All estimators are competing-risks-aware and reproducible (master seed `20260526`); because the secure environment lacks specialised survival/Bayesian libraries, they are implemented directly in NumPy/pandas and unit-tested on synthetic data (145 tests). Full specification: `docs/analysis_plan_2026.md`.
+The exposure is pinned to a defensible contrast — **resistant = `amrp==2`; susceptible = `amrp==0` only** (untested/unascertained excluded). All estimators are competing-risks-aware and reproducible (master seed `20260526`); because the secure environment lacks specialised survival/Bayesian libraries, they are implemented directly in NumPy/pandas and unit-tested on synthetic data (152 tests). Full specification: `docs/analysis_plan_2026.md`.
 
 ## 3. Results
 
@@ -88,6 +88,14 @@ This ships as a re-runnable **Streamlit what-if tool**: a catchment-region stewa
 
 ***Figure 4.** Per-pathogen log2 burden/funding mismatch (>0 = under-funded relative to burden) under the global GRAM burden vs the SSA severe-HAI catchment burden. The catchment lens lifts the Gram-negatives (*K. pneumoniae*, *E. coli*) and flips *S. pneumoniae* from most under-funded globally to over-funded locally.*
 
+### 3.5 The third mismatch: a surveillance blind spot (Component 6 — Cross-Domain)
+
+If funding is misaligned with burden, is *surveillance*? We put the full ATLAS register to work — **1,011,168 isolates, 83 countries, 2004–2024** (not just the 665-isolate catchment cell) — and add a third axis: isolate counts per pathogen and per region against the same GRAM burden. The result is more specific than "everything is misaligned." **By pathogen, surveillance broadly *tracks* burden** (Spearman ρ ≈ **+0.54**) — the blind spot is not taxonomic; the one exception is *S. pneumoniae*, the most under-surveilled pathogen (log2 ≈ +1.1) and — uniquely — the pathogen **neglected on all three axes at once**: high burden, low funding (4.8% of panel spend), low surveillance (7.8% of panel isolates). **The real blind spot is geographic.** Sub-Saharan Africa, which carries the highest AMR-attributable death *rate* of any world region, contributes just **2.3%** of global surveillance isolates; the study catchment, **0.15%**; the **United States alone holds ~7× more isolates than all of Sub-Saharan Africa combined** (country Gini 0.66). Burden, funding, *and* surveillance all bend away from the same place — the SSA community Gram-negatives — which is exactly where the empiric-adequacy lever (§3.3) sits (Figure 5).
+
+![Burden vs funding vs surveillance, and where surveillance physically is](../figures/surveillance_blindspot.png)
+
+***Figure 5.** Left: per-pathogen share of GRAM burden, Hub funding, and ATLAS surveillance (each axis sums to 1; the dotted line is an equal share) — *S. pneumoniae* is below the line on both funding and surveillance despite above-line burden. Right: surveillance concentration — the single largest contributor vs all of sub-Saharan Africa vs the study catchment, as a share of all ATLAS isolates.*
+
 ## 4. Innovation and impact
 
 **Innovation.** The novelty is not the estimator — competing-risks length-of-stay is established — but the *reframing*: identifying excess bed-days under a broken patient↔isolate link in an LMIC HAI cohort, turning the resulting null into a systemic-leverage thesis, and shipping it as a re-runnable local-calibration tool. We treat the small-sample limitation as a quantified result, not a caveat to hide.
@@ -105,7 +113,7 @@ The susceptible arm (n=21) is small and the headline interval does not exclude z
 
 ## 6. Reproducibility and deliverables
 
-Open-source pipeline (Apache-2.0, GitHub + Zenodo): SPIDAAR/ATLAS loaders, competing-risks excess-LOS + sensitivity + figure, Bayesian companion, the random-effects Bayesian evidence synthesis, the isolate-mechanism breakdown + relinkage machinery, ATLAS nowcast + frame-contrast, the global and catchment-specific R&D mismatch indices, the g-formula (with stratified-bootstrap CIs + an E-value), and the Streamlit tool; 145 unit tests on synthetic data; pre-registration + deviation log + OSF addendum. No stewardship recommendation is claimed final without local validation; the framework is built as infrastructure for catchment-region researchers, who have been engaged for independent review.
+Open-source pipeline (Apache-2.0, GitHub + Zenodo): SPIDAAR/ATLAS loaders, competing-risks excess-LOS + sensitivity + figure, Bayesian companion, the random-effects Bayesian evidence synthesis, the isolate-mechanism breakdown + relinkage machinery, ATLAS nowcast + frame-contrast, the global and catchment-specific R&D mismatch indices, the g-formula (with stratified-bootstrap CIs + an E-value), the surveillance blind-spot axis, and the Streamlit tool; 152 unit tests on synthetic data; pre-registration + deviation log + OSF addendum. No stewardship recommendation is claimed final without local validation; the framework is built as infrastructure for catchment-region researchers, who have been engaged for independent review.
 
 ---
 
