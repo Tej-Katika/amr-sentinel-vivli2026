@@ -60,7 +60,7 @@ The point estimate is **negative** — resistant patients leave the admitted sta
 
 ### 3.2 The frame-shift: severe-HAI cohorts run far hotter than surveillance (Component 3)
 
-Because per-country 2025–2030 projections are not data-identified (no catchment ATLAS after 2023), Step 2 is a partial-pooled **resistance nowcast** (empirical-Bayes beta-binomial; pooled ceftazidime-R **0.68**; Ghana 0.47 / Kenya 0.65 / Malawi 0.78 / Uganda 0.76) led by a data-availability matrix that states the sparsity up front. Its novel output is a **frame-contrast**: SPIDAAR severe-HAI inpatient 3GC-R is **0.85** vs ATLAS mixed-surveillance ceftazidime-R **0.62** (same ordering in every country) — the severity/HAI frame shifts measured resistance up ~20 percentage points, a caveat for anyone using mixed-surveillance prevalence to reason about inpatient burden (Supplementary Figure S1).
+Because per-country 2025–2030 projections are not data-identified (no catchment ATLAS after 2023), Step 2 is a partial-pooled **resistance nowcast** (empirical-Bayes beta-binomial; pooled ceftazidime-R **0.68**; Ghana 0.47 / Kenya 0.65 / Malawi 0.78 / Uganda 0.76) led by a data-availability matrix that states the sparsity up front. Its novel output is a **frame-contrast**: SPIDAAR severe-HAI inpatient 3GC-R is **0.85** vs ATLAS mixed-surveillance ceftazidime-R **0.62** (same ordering in every country) — the severity/HAI frame shifts measured resistance up ~20 percentage points — a caveat for anyone using mixed-surveillance prevalence to reason about inpatient burden.
 
 ### 3.3 The leverage is empiric adequacy, not the phenotype (Component 5 — centerpiece)
 
