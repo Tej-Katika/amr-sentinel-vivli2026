@@ -114,7 +114,7 @@ adequacy where it pays most (+4.7 pp deaths averted in the resistant arm).
 
 - **Code (Apache-2.0, 155 tests, confirmatory harness):** github.com/Tej-Katika/amr-sentinel-vivli2026
 - **Pre-registration:** OSF 10.17605/OSF.IO/BFQDP
-- **Archived release:** Zenodo DOI — *paste concept DOI once minted* (see `docs/zenodo_release.md`)
+- **Archived release (Zenodo concept DOI):** 10.5281/zenodo.21186887 — https://doi.org/10.5281/zenodo.21186887
 
 ## 7. One-line pitch (for a title/summary field or the live pitch open)
 
@@ -126,6 +126,6 @@ to reallocate.*
 ---
 
 ### Open items before submission
-- [ ] Mint Zenodo DOI → paste concept DOI into §6 (and into the report header + README).
+- [x] Mint Zenodo DOI → concept DOI 10.5281/zenodo.21186887 wired into §6 + report header + README.
 - [ ] Verify the live MS Form's exact field list and map these blocks to it.
 - [ ] Confirm the contact e-mail / any ORCID fields the form requests.

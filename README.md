@@ -1,6 +1,7 @@
 # AMR Sentinel — Vivli 2026 Analysis
 
 [![OSF Pre-registered](https://img.shields.io/badge/OSF-Pre--registered-337AB7)](https://doi.org/10.17605/OSF.IO/BFQDP)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21186887.svg)](https://doi.org/10.5281/zenodo.21186887)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue)](./LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB)](./.python-version)
 
