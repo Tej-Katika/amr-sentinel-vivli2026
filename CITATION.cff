@@ -15,8 +15,8 @@ authors:
   - family-names: Katika
     given-names: Akhilesh Reddy
     affiliation: "Flinders University"
-version: 0.1.0
-date-released: "2026-06-30"
+version: 1.0.0
+date-released: "2026-07-04"
 license: Apache-2.0
 repository-code: "https://github.com/Tej-Katika/amr-sentinel-vivli2026"
 keywords:
